@@ -57,6 +57,10 @@ export function LogoRainCanvas() {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      for (const l of logosRef.current) {
+        l.x = Math.max(l.radius, Math.min(canvas.width - l.radius, l.x));
+        l.y = Math.max(l.radius, Math.min(canvas.height - l.radius, l.y));
+      }
     };
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -76,27 +80,35 @@ export function LogoRainCanvas() {
     function scheduleSpawn() {
       const elapsed = (performance.now() - t0) / 1000;
       const delay = Math.max(50, 1200 * Math.exp(-elapsed / 90));
+      const tMul = 1 + elapsed / 45;
       spawnTimer = setTimeout(() => {
-        const pidx = Math.floor(Math.random() * LOGO_URLS.length);
         const cw = canvas!.width;
-        let tries = 0;
-        let x: number;
-        do {
-          x = 40 + Math.random() * (cw - 80);
-          tries++;
-        } while (
-          tries < 10 &&
-          logosRef.current.some((l) => Math.abs(l.x - x) < l.radius * 3)
-        );
-        logosRef.current.push({
-          pidx,
-          x,
-          y: -40,
-          vx: (Math.random() - 0.5) * 2,
-          vy: 1 + Math.random() * 2,
-          rotation: Math.random() * Math.PI * 2,
-          radius: 20,
-        });
+        const cnt = Math.min(5, 1 + Math.floor(elapsed / 20));
+        for (let k = 0; k < cnt; k++) {
+          const poke = (idx: number) => {
+            const pidx = Math.floor(Math.random() * LOGO_URLS.length);
+            let tries = 0;
+            let x: number;
+            do {
+              x = 40 + Math.random() * (cw - 80);
+              tries++;
+            } while (
+              tries < 10 &&
+              logosRef.current.some((l) => Math.abs(l.x - x) < l.radius * 3)
+            );
+            logosRef.current.push({
+              pidx,
+              x,
+              y: -80,
+              vx: (Math.random() - 0.5) * 2,
+              vy: (1 + Math.random() * 2) * tMul,
+              rotation: Math.random() * Math.PI * 2,
+              radius: 20,
+            });
+          };
+          if (k === 0) poke(k);
+          else setTimeout(() => poke(k), k * 80);
+        }
         scheduleSpawn();
       }, delay);
     }
@@ -107,103 +119,112 @@ export function LogoRainCanvas() {
     const updatePhysics = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const mouse = mouseRef.current;
-      const gravity = 0.2;
-      const floorBounciness = 0.35;
+      const cw = canvas.width;
+      const ch = canvas.height;
+      const gravity = 0.25;
+      const bnc = 0.4;
+      const drag = 0.99;
 
       const logos = logosRef.current;
       const len = logos.length;
 
-      // Apply gravity + mouse repulsion + wall bounce
+      // Step 1 — forces + integrate (velocity -> position)
       for (let i = 0; i < len; i++) {
         const l = logos[i];
-        l.vy += gravity;
 
-        const onFloor = l.y + l.radius >= canvas.height - 1;
-        if (onFloor) {
-          l.vx *= 0.92;
-          l.vy *= 0.92;
-        }
+        l.vy += gravity;
+        l.vx *= drag;
+        l.vy *= drag;
+
+        const onFloor = l.y + l.radius >= ch - 1;
+        if (onFloor && Math.abs(l.vy) < 0.5) l.vx *= 0.92;
 
         // Mouse repulsion
         const dx = l.x - mouse.x;
         const dy = l.y - mouse.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < 160 && dist > 0.01) {
-          const force = (160 - dist) / 160;
-          l.vx += (dx / dist) * force * 2;
-          l.vy += (dy / dist) * force * 2;
+          const f = ((160 - dist) / 160) * 3;
+          l.vx += (dx / dist) * f;
+          l.vy += (dy / dist) * f;
         }
 
-        l.rotation += l.vx / l.radius * 0.15;
+        l.rotation += l.vx / l.radius * 0.08;
 
-        // Walls
+        // Integrate
+        l.x += l.vx;
+        l.y += l.vy;
+
+        // Wall bounce (fix pos + reflect)
         if (l.x < l.radius) { l.x = l.radius; l.vx = -l.vx * 0.5; }
-        else if (l.x > canvas.width - l.radius) { l.x = canvas.width - l.radius; l.vx = -l.vx * 0.5; }
+        else if (l.x > cw - l.radius) { l.x = cw - l.radius; l.vx = -l.vx * 0.5; }
 
-        // Floor
-        if (l.y > canvas.height - l.radius) {
-          l.y = canvas.height - l.radius;
-          l.vy = -l.vy * floorBounciness;
+        if (l.y < l.radius && l.vy < 0) { l.y = l.radius; l.vy = -l.vy * 0.5; }
+
+        if (l.y > ch - l.radius) {
+          l.y = ch - l.radius;
+          l.vy = -l.vy * bnc;
           if (Math.abs(l.vy) < 0.5) l.vy = 0;
         }
       }
 
-      // Multi-pass collision resolve (3 full passes)
+      // Step 2 — multi-pass particle collision (3 passes)
       for (let pass = 0; pass < 3; pass++) {
         for (let i = 0; i < len; i++) {
           const a = logos[i];
           for (let j = i + 1; j < len; j++) {
             const b = logos[j];
-            let sx = a.x - b.x;
-            let sy = a.y - b.y;
-            let sDist = Math.sqrt(sx * sx + sy * sy);
+            const sx = a.x - b.x;
+            const sy = a.y - b.y;
+            const sDist = Math.sqrt(sx * sx + sy * sy);
             const minDist = a.radius + b.radius;
             if (sDist >= minDist || sDist < 0.01) continue;
 
-            let overlap = minDist - sDist;
-            let nx = sx / sDist;
-            let ny = sy / sDist;
+            const overlap = minDist - sDist;
+            const nx = sx / sDist;
+            const ny = sy / sDist;
 
-            a.x += nx * overlap * 0.5;
-            a.y += ny * overlap * 0.5;
-            b.x -= nx * overlap * 0.5;
-            b.y -= ny * overlap * 0.5;
+            // Position korrektion
+            const sep = overlap * 0.5;
+            a.x += nx * sep;
+            a.y += ny * sep;
+            b.x -= nx * sep;
+            b.y -= ny * sep;
 
-            // Clamp to canvas
-            if (a.x < a.radius) a.x = a.radius;
-            else if (a.x > canvas.width - a.radius) a.x = canvas.width - a.radius;
-            if (a.y > canvas.height - a.radius) a.y = canvas.height - a.radius;
-            if (b.x < b.radius) b.x = b.radius;
-            else if (b.x > canvas.width - b.radius) b.x = canvas.width - b.radius;
-            if (b.y > canvas.height - b.radius) b.y = canvas.height - b.radius;
+            // Clamp both axes to canvas bounds
+            a.x = Math.max(a.radius, Math.min(cw - a.radius, a.x));
+            a.y = Math.max(a.radius, Math.min(ch - a.radius, a.y));
+            b.x = Math.max(b.radius, Math.min(cw - b.radius, b.x));
+            b.y = Math.max(b.radius, Math.min(ch - b.radius, b.y));
 
-            // Velocity exchange
+            // Velosity exchange along collision normal
             const relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
             if (relVn < 0) {
-              a.vx -= relVn * nx * 0.5;
-              a.vy -= relVn * ny * 0.5;
-              b.vx += relVn * nx * 0.5;
-              b.vy += relVn * ny * 0.5;
+              const imp = relVn * 0.5;
+              a.vx -= imp * nx;
+              a.vy -= imp * ny;
+              b.vx += imp * nx;
+              b.vy += imp * ny;
             }
 
-            // Slide apart
-            const slide = overlap * 0.2;
-            a.vx += -ny * slide;
-            a.vy += nx * slide;
-            b.vx += ny * slide;
-            b.vy += -nx * slide;
+            // Tangential slide
+            const sl = overlap * 0.15;
+            const tx = -ny;
+            const ty = nx;
+            a.vx += tx * sl;
+            a.vy += ty * sl;
+            b.vx -= tx * sl;
+            b.vy -= ty * sl;
 
-            a.rotation += (a.vx - b.vx) / a.radius * 0.05;
-            b.rotation += (b.vx - a.vx) / b.radius * 0.05;
+            a.rotation += (b.vx - a.vx) / a.radius * 0.04;
+            b.rotation += (a.vx - b.vx) / b.radius * 0.04;
           }
         }
       }
 
-      // Apply velocity + draw
+      // Step 3 — draw
       for (let i = 0; i < len; i++) {
         const l = logos[i];
-        l.x += l.vx;
-        l.y += l.vy;
 
         ctx.save();
         ctx.translate(l.x, l.y);
@@ -229,7 +250,7 @@ export function LogoRainCanvas() {
 
       // Cull off-screen
       logosRef.current = logos.filter(
-        (l) => l.y < canvas.height + 100 && l.x > -100 && l.x < canvas.width + 100
+        (l) => l.y < ch + 100 && l.x > -100 && l.x < cw + 100
       );
 
       animationFrameId = requestAnimationFrame(updatePhysics);

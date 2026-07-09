@@ -440,7 +440,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   // ========== Render: Mode Selection ==========
   if (step === 'mode') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16 relative overflow-hidden bg-background">
+      <div className="h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-4 bg-background">
         <LogoRainCanvas />
 
         {/* Intro Stage Header */}
@@ -504,8 +504,8 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   // ========== Render: BYOK config ==========
   if (mode === 'byok' && step === 'config') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
-        <div className="w-full max-w-lg">
+      <div className="h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-4">
+        <div className="w-full max-w-lg overflow-y-auto">
           <h2 className="font-heading text-2xl font-bold text-foreground mb-2">Connect Your Provider</h2>
           <p className="text-foreground/60 mb-8">
             Your API key is sent to our secure proxy and never stored on any server.
@@ -595,20 +595,17 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
 
   // ========== Render: Model selection (shared) ==========
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
-      <div className="w-full max-w-2xl">
-        <h2 className="font-heading text-2xl font-bold text-foreground mb-2">Select Models</h2>
-        <p className="text-foreground/60 mb-2">
+    <div className="h-screen overflow-hidden flex flex-col items-center px-4 py-3">
+      <div className="w-full max-w-2xl flex flex-col h-full">
+        <h2 className="font-heading text-2xl font-bold text-foreground mb-1">Select Models</h2>
+        <p className="text-foreground/60 mb-1 text-sm">
           {selectionMode === 'whitelist'
             ? 'Enable the models you want in the pool. Each round, two will be randomly picked.'
             : 'Models you mark as blocked will be excluded. All others are fair game in the arena.'}
         </p>
-        <p className="text-sm text-foreground/40 mb-6">
-          At least 2 models must be available. Click any model to toggle it.
-        </p>
 
         {/* Whitelist / Blacklist Toggle */}
-        <div className="flex items-center gap-6 mb-4">
+        <div className="flex items-center gap-4 mb-2">
           <div className="relative inline-flex rounded-xl bg-muted p-0.5 border border-border">
             <div
               className={`absolute top-0.5 bottom-0.5 w-1/2 rounded-lg bg-primary transition-all duration-200 ${
@@ -653,17 +650,17 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
           placeholder="Search models…"
           value={modelSearch}
           onChange={(e) => setModelSearch(e.target.value)}
-          className="mb-6"
+          className="mb-2"
         />
 
         {/* Virtualized model checklist */}
-        <div className="mb-8">
+        <div className="flex-1 min-h-0 mb-2">
           {filteredModels.length > 0 ? (
             <VirtualList
               items={filteredModels}
               itemHeight={62}
               overscan={5}
-              className="h-80"
+              className="h-full"
               renderItem={(m) => (
                 <ModelRow
                   model={m}
@@ -674,7 +671,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
               )}
             />
           ) : (
-            <div className="h-20 flex items-center justify-center">
+            <div className="h-full flex items-center justify-center">
               <p className="text-sm text-foreground/40">
                 {deferredSearch ? 'No matching models found.' : 'No models loaded.'}
               </p>
@@ -683,7 +680,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </div>
 
         {/* Pool count */}
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-2 mb-2 shrink-0">
           <Badge variant={poolSize >= 2 ? 'success' : 'warning'}>
             {poolSize} model{poolSize !== 1 ? 's' : ''} in pool
           </Badge>
@@ -702,7 +699,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </div>
 
         {/* Config */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-2 mb-2 shrink-0">
           <Input
             label="System Prompt (optional)"
             placeholder="You are a helpful assistant…"
@@ -732,14 +729,14 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </div>
 
         {/* Start */}
-        <Button onClick={handleStart} disabled={!canStart} size="lg" className="w-full">
+        <Button onClick={handleStart} disabled={!canStart} size="lg" className="w-full shrink-0">
           <Wand2 size={20} />
           Start Blind Match
         </Button>
 
         <button
           onClick={() => setStep(mode === 'demo' ? 'mode' : 'config')}
-          className="mt-6 text-sm text-foreground/50 hover:text-foreground cursor-pointer transition-colors block mx-auto"
+          className="mt-2 mb-1 text-sm text-foreground/50 hover:text-foreground cursor-pointer transition-colors block mx-auto shrink-0"
         >
           ← Back
         </button>
