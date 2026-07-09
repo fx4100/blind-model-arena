@@ -283,14 +283,16 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   // -- Step tracking --
   const [step, setStep] = useState<SetupStep>('mode');
 
-  // -- Intro Sequence Stage --
-  const [introStage, setIntroStage] = useState<'intro' | 'setup'>('intro');
+  // -- intro anim only once per session --
+  const [introStage, setIntroStage] = useState<'intro' | 'setup'>(() => (window as any).__introShown ? 'setup' : 'intro');
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if ((window as any).__introShown) { setIntroStage('setup'); return; }
+    const t = setTimeout(() => {
+      (window as any).__introShown = true;
       setIntroStage('setup');
     }, 1000);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, []);
 
   // -- Whitelist / blacklist mode --

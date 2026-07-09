@@ -70,32 +70,37 @@ export function LogoRainCanvas() {
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseleave', handleMouseLeave);
 
-    const MAX_LOGOS = 60;
-    const SPAWN_MS = 850;
+    const t0 = performance.now();
+    let spawnTimer: ReturnType<typeof setTimeout>;
 
-    const spawnInterval = setInterval(() => {
-      if (logosRef.current.length >= MAX_LOGOS) return;
-      const pidx = Math.floor(Math.random() * LOGO_URLS.length);
-      let tries = 0;
-      let x: number;
-      do {
-        x = 40 + Math.random() * (canvas.width - 80);
-        tries++;
-      } while (
-        tries < 10 &&
-        logosRef.current.some((l) => Math.abs(l.x - x) < l.radius * 3)
-      );
-      const newLogo: LogoItem = {
-        pidx,
-        x,
-        y: -40,
-        vx: (Math.random() - 0.5) * 2,
-        vy: 1 + Math.random() * 2,
-        rotation: Math.random() * Math.PI * 2,
-        radius: 20,
-      };
-      logosRef.current.push(newLogo);
-    }, SPAWN_MS);
+    function scheduleSpawn() {
+      const elapsed = (performance.now() - t0) / 1000;
+      const delay = Math.max(50, 1200 * Math.exp(-elapsed / 90));
+      spawnTimer = setTimeout(() => {
+        const pidx = Math.floor(Math.random() * LOGO_URLS.length);
+        const cw = canvas!.width;
+        let tries = 0;
+        let x: number;
+        do {
+          x = 40 + Math.random() * (cw - 80);
+          tries++;
+        } while (
+          tries < 10 &&
+          logosRef.current.some((l) => Math.abs(l.x - x) < l.radius * 3)
+        );
+        logosRef.current.push({
+          pidx,
+          x,
+          y: -40,
+          vx: (Math.random() - 0.5) * 2,
+          vy: 1 + Math.random() * 2,
+          rotation: Math.random() * Math.PI * 2,
+          radius: 20,
+        });
+        scheduleSpawn();
+      }, delay);
+    }
+    scheduleSpawn();
 
     let animationFrameId: number;
 
@@ -233,7 +238,7 @@ export function LogoRainCanvas() {
     updatePhysics();
 
     return () => {
-      clearInterval(spawnInterval);
+      clearTimeout(spawnTimer);
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', resizeCanvas);
       window.removeEventListener('mousemove', handleMouseMove);

@@ -119,7 +119,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
 
         {/* Speed Summary */}
         <Card padding="lg" className="mb-6">
-          <h2 className="font-heading font-semibold text-lg mb-4 flex items-center gap-2">
+          <h2 className="font-heading font-semibold text-lg mb-4 flex items-center gap-2 text-foreground">
             <Zap size={20} className="text-primary" />
             Speed Summary
           </h2>
@@ -134,7 +134,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                     <p className="text-xs text-foreground/50 uppercase tracking-wider">
                       Avg TPS
                     </p>
-                    <p className="font-heading font-semibold text-xl">
+                    <p className="font-heading font-semibold text-xl text-foreground">
                       {formatTps(s.avgTps)} tok/s
                     </p>
                   </div>
@@ -162,7 +162,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
 
         {/* Per-round breakdown */}
         <Card padding="lg" className="mb-8">
-          <h2 className="font-heading font-semibold text-lg mb-4">Round by Round</h2>
+          <h2 className="font-heading font-semibold text-lg mb-4 text-foreground">Round by Round</h2>
           <div className="space-y-3">
             {rounds.map((round) => (
               <div
@@ -181,7 +181,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                   </div>
                   <span className="text-xs text-foreground/40 font-heading flex items-center gap-1">
                     <Zap size={12} />
-                    {formatTps(Math.max(round.tpsA, round.tpsB))} tok/s
+                    <span className="text-foreground">{formatTps(Math.max(round.tpsA, round.tpsB))} tok/s</span>
                   </span>
                 </div>
 
@@ -197,7 +197,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                     <p className="text-foreground/40">
                       {round.tokensA.output.toLocaleString()} out ·{' '}
                       {(round.tokensA.output + round.tokensA.input).toLocaleString()} total ·{' '}
-                      {formatTps(round.tpsA)} tok/s ·{' '}
+                      <span className="text-foreground">{formatTps(round.tpsA)} tok/s</span> ·{' '}
                       {(round.timeMsA / 1000).toFixed(2)}s
                     </p>
                   </div>
@@ -210,7 +210,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                     <p className="text-foreground/40">
                       {round.tokensB.output.toLocaleString()} out ·{' '}
                       {(round.tokensB.output + round.tokensB.input).toLocaleString()} total ·{' '}
-                      {formatTps(round.tpsB)} tok/s ·{' '}
+                      <span className="text-foreground">{formatTps(round.tpsB)} tok/s</span> ·{' '}
                       {(round.timeMsB / 1000).toFixed(2)}s
                     </p>
                   </div>
