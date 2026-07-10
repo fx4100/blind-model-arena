@@ -288,6 +288,82 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // -- intro anim only once per session --
   const [introStage, setIntroStage] = useState<'intro' | 'setup'>(() => (window as any).__introShown ? 'setup' : 'intro');
 
+  const ps2Ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ps2Ref.current;
+    if (!canvas || step !== 'models') return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const enabled = models.filter(m => enabledIds.has(m.id));
+    if (enabled.length === 0) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const imgs: HTMLImageElement[] = [];
+    let loaded = 0;
+
+    for (const m of enabled) {
+      const url = getModelLogoUrl(m);
+      if (!url) continue;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => loaded++;
+      img.onerror = () => loaded++;
+      img.src = url;
+      imgs.push(img);
+    }
+
+    if (imgs.length === 0) return;
+
+    const cx = () => canvas.width / 2;
+    const cy = () => canvas.height * 0.55;
+    const r = () => Math.min(canvas.width, canvas.height) * 0.28;
+    const spd = 0.006;
+    let ang = 0;
+    let aid: number;
+
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ang += spd;
+
+      for (let i = 0; i < imgs.length; i++) {
+        const a = ang + (i / imgs.length) * Math.PI * 2;
+        const x = cx() + Math.cos(a) * r();
+        const y = cy() + Math.sin(a) * r() * 0.4;
+        const sz = 28;
+        const dep = (Math.sin(a) + 1) / 2;
+        const op = 0.02 + dep * 0.05;
+
+        ctx.save();
+        ctx.globalAlpha = op;
+        ctx.translate(x, y);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.drawImage(imgs[i], -sz / 2, -sz / 2, sz, sz);
+        ctx.restore();
+      }
+
+      aid = requestAnimationFrame(loop);
+    };
+
+    const wait = () => {
+      if (loaded >= imgs.length) loop();
+      else setTimeout(wait, 100);
+    };
+    wait();
+
+    return () => {
+      cancelAnimationFrame(aid);
+      window.removeEventListener('resize', resize);
+    };
+  }, [step, models, enabledIds]);
+
   useEffect(() => {
     if ((window as any).__introShown) { setIntroStage('setup'); return; }
     const t = setTimeout(() => {
@@ -606,7 +682,8 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // ========== Render: Model selection (shared) ==========
   return (
     <div className="h-screen overflow-hidden flex flex-col items-center px-4 py-3">
-      <div className="w-full max-w-2xl flex flex-col h-full">
+      <canvas ref={ps2Ref} className="fixed inset-0 pointer-events-none z-0" />
+      <div className="w-full max-w-2xl flex flex-col h-full relative z-10">
         <h2 className="font-heading text-2xl font-bold text-foreground mb-1">Select Models</h2>
         <p className="text-foreground/60 mb-1 text-sm">
           {selectionMode === 'whitelist'

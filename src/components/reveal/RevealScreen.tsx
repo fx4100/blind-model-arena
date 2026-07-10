@@ -99,12 +99,94 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
 
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set());
   const [bgReady, setBgReady] = useState(false);
-  const [meteorKey, setMeteorKey] = useState(0);
+  const meteorRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setBgReady(true), 200);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!bgReady || !topModel) return;
+    const url = getModelLogoUrl(topModel);
+    if (!url) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.src = url;
+
+    const canvas = meteorRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const metCnt = () => Math.min(40, Math.max(8, Math.floor((canvas.width * canvas.height) / 60000)));
+    const metSpd = () => 2.5 + Math.random() * 2.5;
+    const metSz = () => 24 + Math.random() * 20;
+
+    interface Met {
+      x: number; y: number; vx: number; vy: number; sz: number; op: number;
+    }
+
+    let mets: Met[] = [];
+    let aid: number;
+
+    const spawn = () => {
+      const max = metCnt();
+      while (mets.length < max) {
+        const spd = metSpd();
+        mets.push({
+          x: -metSz() + Math.random() * canvas.width * 0.4,
+          y: -metSz() * 2 + Math.random() * canvas.height * 0.3,
+          vx: spd * 1.1,
+          vy: spd,
+          sz: metSz(),
+          op: 0.15 + Math.random() * 0.25,
+        });
+      }
+    };
+
+    img.onload = () => {
+      spawn();
+
+      const loop = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (const m of mets) {
+          m.x += m.vx;
+          m.y += m.vy;
+
+          ctx.save();
+          ctx.globalAlpha = m.op;
+          ctx.translate(m.x, m.y);
+          ctx.rotate(Math.PI / 6);
+          ctx.drawImage(img, -m.sz / 2, -m.sz / 2, m.sz, m.sz);
+          ctx.restore();
+        }
+
+        // remove off-screen
+        mets = mets.filter(m => m.x < canvas.width + 100 && m.y < canvas.height + 100);
+
+        // keep refilled
+        spawn();
+
+        aid = requestAnimationFrame(loop);
+      };
+      loop();
+    };
+
+    return () => {
+      cancelAnimationFrame(aid);
+      window.removeEventListener('resize', resize);
+    };
+  }, [bgReady, topModel]);
 
   const toggleRound = (n: number) => {
     setExpandedRounds((prev) => {
@@ -144,17 +226,6 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         .anim-sld-4 { animation-delay: 0.55s; }
         .anim-sld-5 { animation-delay: 0.7s; }
         .anim-glow { animation: glowPulse 2.5s ease-in-out infinite; }
-        @keyframes metFall {
-          0%   { transform: translate(120vw, -15vh) rotate(25deg); opacity: 0; }
-          6%   { opacity: 0.9; }
-          100% { transform: translate(-15vw, 108vh) rotate(25deg); opacity: 0; }
-        }
-        .met-logo {
-          position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none;
-          width: 40px; height: 40px;
-          animation: metFall 5s cubic-bezier(0.4,0,0.2,1) forwards;
-          filter: drop-shadow(0 0 18px oklch(0.63 0.19 255 / 0.5));
-        }
       `}</style>
 
       {/* Background model logos */}
@@ -181,16 +252,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         </div>
       )}
 
-      {/* Meteor — winner logo falls diagonally */}
-      {topModel && getModelLogoUrl(topModel) && (
-        <img
-          key={meteorKey}
-          src={getModelLogoUrl(topModel)!}
-          alt=""
-          className="met-logo theme-logo"
-          onAnimationEnd={() => setMeteorKey(k => k + 1)}
-        />
-      )}
+      <canvas ref={meteorRef} className="fixed inset-0 pointer-events-none z-[1]" />
 
       <div className="max-w-3xl mx-auto w-full relative z-10">
 
