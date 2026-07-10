@@ -209,26 +209,33 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
           <Card padding="lg" className="rounded-none border border-border">
             <h2 className="font-heading font-semibold text-lg mb-4 text-foreground">Score</h2>
             <div className="h-8 w-full rounded-none bg-muted overflow-hidden flex">
-              <div
-                className="h-full bg-primary transition-all duration-700 flex items-center justify-center text-xs font-bold text-on-primary"
-                style={{ width: `${pctA}%` }}
-              >
-                {pctA >= 15 ? `A ${scores.a}` : ''}
-              </div>
-              <div
-                className="h-full bg-foreground/20 transition-all duration-700 flex items-center justify-center text-xs font-bold text-foreground"
-                style={{ width: `${100 - pctA}%` }}
-              >
-                {pctA <= 85 ? `B ${scores.b}` : ''}
-              </div>
+              {sortedByVotes.length > 0 && (
+                <div
+                  className="h-full bg-primary transition-all duration-700 flex items-center justify-center text-xs font-bold text-on-primary truncate px-1"
+                  style={{ width: `${sortedByVotes.length > 1 ? (sortedByVotes[0].votes / (sortedByVotes[0].votes + sortedByVotes[1].votes)) * 100 : 100}%` }}
+                >
+                  {sortedByVotes[0].model.name} {sortedByVotes[0].votes}
+                </div>
+              )}
+              {sortedByVotes.length > 1 && (
+                <div
+                  className="h-full bg-foreground/20 transition-all duration-700 flex items-center justify-center text-xs font-bold text-foreground truncate px-1"
+                >
+                  {sortedByVotes[1].model.name} {sortedByVotes[1].votes}
+                </div>
+              )}
             </div>
             <div className="flex justify-between text-xs text-foreground/50 mt-1">
-              <span className={`anim-sld anim-sld-1 ${scores.a > scores.b ? 'text-primary font-semibold' : ''}`}>
-                A — {scores.a} vote{scores.a !== 1 ? 's' : ''}
-              </span>
-              <span className={`anim-sld anim-sld-2 ${scores.b > scores.a ? 'text-primary font-semibold' : ''}`}>
-                B — {scores.b} vote{scores.b !== 1 ? 's' : ''}
-              </span>
+              {sortedByVotes.length > 0 && (
+                <span className="anim-sld anim-sld-1 text-primary font-semibold truncate mr-2">
+                  {sortedByVotes[0].model.name} — {sortedByVotes[0].votes} vote{sortedByVotes[0].votes !== 1 ? 's' : ''}
+                </span>
+              )}
+              {sortedByVotes.length > 1 && (
+                <span className="anim-sld anim-sld-2 text-foreground/50 truncate">
+                  {sortedByVotes[1].model.name} — {sortedByVotes[1].votes} vote{sortedByVotes[1].votes !== 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           </Card>
         </div>
@@ -244,17 +251,13 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                   <div key={r.roundNumber} className="flex items-center">
                     <div className="flex flex-col items-center w-8">
                       <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold cursor-pointer transition-all hover:scale-125 ${
-                          isAWin
-                            ? 'bg-primary border-primary text-on-primary'
-                            : 'bg-transparent border-foreground/30 text-foreground/50'
-                        }`}
+                        className="w-5 h-5 rounded-full border-2 border-primary bg-primary flex items-center justify-center text-[10px] font-bold text-on-primary cursor-pointer transition-all hover:scale-125"
                         onClick={() => toggleRound(r.roundNumber)}
                         title={`Round ${r.roundNumber}: ${isAWin ? 'A' : 'B'} won`}
                       >
                         {r.roundNumber}
                       </div>
-                      <span className={`text-[10px] mt-1 font-heading ${isAWin ? 'text-primary' : 'text-foreground/30'}`}>
+                      <span className="text-[10px] mt-1 font-heading text-primary">
                         {isAWin ? 'A' : 'B'}
                       </span>
                     </div>
