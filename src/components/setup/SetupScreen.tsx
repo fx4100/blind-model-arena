@@ -440,7 +440,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   // ========== Render: Mode Selection ==========
   if (step === 'mode') {
     return (
-      <div className="h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-4 bg-background">
+      <div className="fixed inset-0 flex flex-col items-center pt-16 sm:pt-20 px-4 bg-background">
         <LogoRainCanvas />
 
         {/* Intro Stage Header */}
@@ -467,7 +467,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         <div 
           className={`z-10 relative grid gap-4 w-full max-w-md overflow-y-auto transition-all duration-700 delay-300 transform ${
             introStage === 'setup'
-              ? 'opacity-100 translate-y-0 mt-12 sm:mt-20'
+              ? 'opacity-100 translate-y-0'
               : 'opacity-0 translate-y-4 pointer-events-none'
           }`}
         >
