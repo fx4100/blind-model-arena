@@ -458,9 +458,9 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const isBothDone = !isStreamingA && !isStreamingB && phase === 'voting';
 
   return (
-    <div className="min-h-screen flex flex-col px-4 py-6">
+    <div className="h-screen overflow-hidden flex flex-col px-4 py-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 max-w-6xl mx-auto w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 max-w-6xl mx-auto w-full shrink-0">
         <div>
           <h1 className="font-heading font-bold text-xl text-foreground">Blind Model Arena</h1>
           <p className="text-sm text-foreground/50">
@@ -489,7 +489,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* Prompt Input */}
       {phase === 'prompt' && (
-        <div className="max-w-6xl mx-auto w-full mb-6">
+        <div className="max-w-6xl mx-auto w-full mb-4 shrink-0">
           <div className="flex gap-3">
             <Input
               placeholder="Enter your prompt to compare both models…"
@@ -512,15 +512,15 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       )}
 
       {/* Response Panels */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-6xl mx-auto w-full">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-6xl mx-auto w-full">
         {/* Model A */}
-        <Card padding="md" className={`flex flex-col min-h-[400px] relative rounded-none ${isStreamingA ? 'border-t-primary border-t-2' : ''}`}>
-          <div className="flex items-center justify-between mb-4">
+        <Card padding="md" className={`flex flex-col min-h-0 relative rounded-none ${isStreamingA ? 'border-t-primary border-t-2' : ''}`}>
+          <div className="flex items-center justify-between mb-4 shrink-0">
             <h3 className="font-heading font-semibold text-foreground uppercase tracking-widest text-sm text-foreground/80">
               {roundLabel} A
             </h3>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {errorA ? (
               <div className="text-destructive text-sm p-4 rounded-none bg-destructive/5">{errorA}</div>
             ) : responseA ? (
@@ -541,13 +541,13 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
         </Card>
 
         {/* Model B */}
-        <Card padding="md" className={`flex flex-col min-h-[400px] relative rounded-none ${isStreamingB ? 'border-t-primary border-t-2' : ''}`}>
-          <div className="flex items-center justify-between mb-4">
+        <Card padding="md" className={`flex flex-col min-h-0 relative rounded-none ${isStreamingB ? 'border-t-primary border-t-2' : ''}`}>
+          <div className="flex items-center justify-between mb-4 shrink-0">
             <h3 className="font-heading font-semibold text-foreground uppercase tracking-widest text-sm text-foreground/80">
               {roundLabel} B
             </h3>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             {errorB ? (
               <div className="text-destructive text-sm p-4 rounded-none bg-destructive/5">{errorB}</div>
             ) : responseB ? (
@@ -570,7 +570,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* Voting */}
       {isBothDone && (
-        <div className="max-w-6xl mx-auto w-full mt-6">
+        <div className="max-w-6xl mx-auto w-full mt-4 shrink-0">
           <Card padding="md" className="rounded-none border border-border">
             <div className="flex flex-col items-center gap-4">
               <p className="font-heading font-semibold text-foreground">
@@ -606,7 +606,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* TPS & Token breakdown */}
       {showUnsureInfo && (phase === 'voting' || phase === 'round_end') && (
-        <div className="max-w-6xl mx-auto w-full mt-4">
+        <div className="max-w-6xl mx-auto w-full mt-2 shrink-0">
           <Card padding="md" className="rounded-none border border-border bg-surface">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-heading font-semibold text-sm text-foreground/50">
@@ -691,7 +691,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* Next round */}
       {phase === 'round_end' && (
-        <div className="max-w-6xl mx-auto w-full mt-4 flex justify-center">
+        <div className="max-w-6xl mx-auto w-full mt-2 flex justify-center shrink-0">
           <Button onClick={handleNextRound} size="lg">
             <RefreshCw size={18} />
             Next Round
