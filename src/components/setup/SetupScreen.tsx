@@ -300,6 +300,9 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   const radius = 20;
   const MAX_PARTS = 50;
 
+  // -- Whitelist / blacklist mode --
+  const [selectionMode, setSelectionMode] = useState<SelectionMode>('whitelist');
+
   // — image loader (one-shot) —
   useEffect(() => {
     if (step !== 'models' || imgsReady.current) return;
@@ -333,23 +336,25 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // — particle syncer (reacts to selection changes) —
   useEffect(() => {
     if (step !== 'models') return;
-    const enabled = models.filter(m => enabledIds.has(m.id));
-    if (enabled.length === 0) { partsRef.current = []; return; }
+    const shown = selectionMode === 'whitelist'
+      ? models.filter(m => enabledIds.has(m.id))
+      : models.filter(m => !enabledIds.has(m.id));
+    if (shown.length === 0) { partsRef.current = []; return; }
 
     const parts = partsRef.current;
-    const sel = new Set(enabled.map(m => m.id));
+    const ids = new Set(shown.map(m => m.id));
     const cw = window.innerWidth;
     const ch = window.innerHeight;
 
-    // Remove particles for deselected models (matching by mid)
+    // Remove particles no longer in the set
     for (let i = parts.length - 1; i >= 0; i--) {
-      if (!sel.has(parts[i].mid)) {
+      if (!ids.has(parts[i].mid)) {
         parts.splice(i, 1);
       }
     }
 
-    // Add particles for newly selected models
-    for (const m of enabled) {
+    // Add particles for newly shown models
+    for (const m of shown) {
       if (parts.some(p => p.mid === m.id)) continue;
       if (parts.length >= MAX_PARTS) break;
       const side = Math.random() < 0.5 ? -1 : 1;
@@ -365,7 +370,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         mid: m.id,
       });
     }
-  }, [step, enabledIds, models]);
+  }, [step, enabledIds, models, selectionMode]);
 
   // — animation loop (persistent) —
   useEffect(() => {
@@ -466,9 +471,6 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     }, 1000);
     return () => clearTimeout(t);
   }, []);
-
-  // -- Whitelist / blacklist mode --
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('whitelist');
 
   // ========== Initialize enabled IDs based on selection mode ==========
   const initEnabledIds = useCallback((allModels: ModelInfo[], mode: SelectionMode) => {
