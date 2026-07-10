@@ -237,12 +237,12 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         <div className="mb-6 anim-sld anim-sld-3">
           <Card padding="lg" className="rounded-none border border-border">
             <h2 className="font-heading font-semibold text-lg mb-4 text-foreground">Timeline</h2>
-            <div className="flex items-center gap-0">
+            <div className="flex justify-center items-center">
               {rounds.map((r, i) => {
                 const isAWin = r.vote === 'a';
                 return (
-                  <div key={r.roundNumber} className="flex items-center flex-1">
-                    <div className="flex flex-col items-center">
+                  <div key={r.roundNumber} className="flex items-center">
+                    <div className="flex flex-col items-center w-8">
                       <div
                         className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[10px] font-bold cursor-pointer transition-all hover:scale-125 ${
                           isAWin
@@ -259,7 +259,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                       </span>
                     </div>
                     {i < rounds.length - 1 && (
-                      <div className="flex-1 h-px mx-1 bg-gradient-to-r from-foreground/20 via-foreground/40 to-foreground/20" />
+                      <div className="w-6 h-px bg-gradient-to-r from-foreground/20 via-foreground/40 to-foreground/20" />
                     )}
                   </div>
                 );
