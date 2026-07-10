@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { SetupScreen } from './components/setup/SetupScreen';
 import { MatchArena } from './components/arena/MatchArena';
 import { RevealScreen } from './components/reveal/RevealScreen';
-import { Sun, Moon } from 'lucide-react';
 import type { AppPhase, MatchConfig, MatchState, RoundResult } from './types';
 
 interface MatchResults {
@@ -63,17 +62,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background relative">
-      {phase === 'setup' && (
-        <button
-          onClick={toggleTheme}
-          className="fixed top-6 right-6 z-50 p-2.5 rounded-xl border border-border bg-surface/60 backdrop-blur-md text-foreground hover:bg-muted/70 transition-all cursor-pointer shadow-sm flex items-center justify-center"
-          aria-label="Toggle Theme"
-        >
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-        </button>
-      )}
-
-      {phase === 'setup' && <SetupScreen onStart={handleStart} />}
+      {phase === 'setup' && <SetupScreen onStart={handleStart} toggleTheme={toggleTheme} theme={theme} />}
       {phase === 'match' && matchConfig && (
         <MatchArena config={matchConfig} onReveal={handleReveal} />
       )}

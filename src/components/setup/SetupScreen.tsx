@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useDeferredValue, memo, useEffect } from 'react';
-import { AlertTriangle, Check, Key, Search, ShieldBan, Sparkles, Wand2, X } from 'lucide-react';
+import { AlertTriangle, Check, Key, Search, ShieldBan, Sparkles, Sun, Moon, Wand2, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
@@ -14,6 +14,8 @@ import { getEdgeFunctionUrl } from '../../services/api';
 
 interface SetupScreenProps {
   onStart: (config: MatchConfig) => void;
+  toggleTheme: () => void;
+  theme: 'light' | 'dark';
 }
 
 type SetupStep = 'mode' | 'config' | 'models';
@@ -259,7 +261,7 @@ const ModelRow = memo(function ModelRow({ model, enabled, mode, onToggle }: Mode
 // ==========================================================================
 // Main setup screen
 // ==========================================================================
-export function SetupScreen({ onStart }: SetupScreenProps) {
+export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // -- Mode selection --
   const [mode, setMode] = useState<AccessMode | null>(null);
 
@@ -442,6 +444,14 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
     return (
       <div className="fixed inset-0 flex flex-col items-center pt-16 sm:pt-20 px-4 bg-background">
         <LogoRainCanvas />
+
+        <button
+          onClick={toggleTheme}
+          className="fixed top-6 right-6 z-50 p-2.5 rounded-xl border border-border bg-surface/60 backdrop-blur-md text-foreground hover:bg-muted/70 transition-all cursor-pointer shadow-sm flex items-center justify-center"
+          aria-label="Toggle Theme"
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
 
         {/* Intro Stage Header */}
         <div 

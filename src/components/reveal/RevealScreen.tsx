@@ -223,10 +223,10 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
               </div>
             </div>
             <div className="flex justify-between text-xs text-foreground/50 mt-1">
-              <span className={scores.a > scores.b ? 'text-primary font-semibold' : ''}>
+              <span className={`anim-sld anim-sld-1 ${scores.a > scores.b ? 'text-primary font-semibold' : ''}`}>
                 A — {scores.a} vote{scores.a !== 1 ? 's' : ''}
               </span>
-              <span className={scores.b > scores.a ? 'text-primary font-semibold' : ''}>
+              <span className={`anim-sld anim-sld-2 ${scores.b > scores.a ? 'text-primary font-semibold' : ''}`}>
                 B — {scores.b} vote{scores.b !== 1 ? 's' : ''}
               </span>
             </div>

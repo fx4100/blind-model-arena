@@ -459,6 +459,13 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
   return (
     <div className="h-screen overflow-hidden flex flex-col px-4 py-6">
+      <style>{`
+        @keyframes sldIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .anim-sld { animation: sldIn 0.5s ease-out both; }
+        .anim-sld-1 { animation-delay: 0.1s; }
+        .anim-sld-2 { animation-delay: 0.25s; }
+      `}</style>
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 max-w-6xl mx-auto w-full shrink-0">
         <div>
@@ -570,18 +577,18 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* Voting */}
       {isBothDone && (
-        <div className="max-w-6xl mx-auto w-full mt-4 shrink-0">
+        <div className="max-w-6xl mx-auto w-full mt-4 shrink-0 anim-sld anim-sld-1">
           <Card padding="md" className="rounded-none border border-border">
             <div className="flex flex-col items-center gap-4">
               <p className="font-heading font-semibold text-foreground">
                 Which response was better?
               </p>
               <div className="flex items-center gap-3 flex-wrap justify-center">
-                <Button variant="primary" onClick={() => handleVote('a')} size="lg">
+                <Button variant="primary" onClick={() => handleVote('a')} size="lg" className="anim-sld anim-sld-1">
                   <Trophy size={18} />
                   Model A wins
                 </Button>
-                <Button variant="secondary" onClick={() => handleVote('b')} size="lg">
+                <Button variant="secondary" onClick={() => handleVote('b')} size="lg" className="anim-sld anim-sld-2">
                   <Trophy size={18} />
                   Model B wins
                 </Button>
@@ -606,7 +613,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* TPS & Token breakdown */}
       {showUnsureInfo && (phase === 'voting' || phase === 'round_end') && (
-        <div className="max-w-6xl mx-auto w-full mt-2 shrink-0">
+        <div className="max-w-6xl mx-auto w-full mt-2 shrink-0 anim-sld anim-sld-2">
           <Card padding="md" className="rounded-none border border-border bg-surface">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-heading font-semibold text-sm text-foreground/50">
@@ -691,7 +698,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       {/* Next round */}
       {phase === 'round_end' && (
-        <div className="max-w-6xl mx-auto w-full mt-2 flex justify-center shrink-0">
+        <div className="max-w-6xl mx-auto w-full mt-2 flex justify-center shrink-0 anim-sld anim-sld-1">
           <Button onClick={handleNextRound} size="lg">
             <RefreshCw size={18} />
             Next Round
