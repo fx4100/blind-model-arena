@@ -13,13 +13,13 @@ interface RevealScreenProps {
 
 const MODEL_LOGOS: [RegExp, string][] = [
   [/claude|sonnet|haiku|opus|fable/i, 'https://cdn.simpleicons.org/claude/383c4a'],
-  [/mistral/i, 'https://cdn.simpleicons.org/mistral/383c4a'],
+  [/mistral/i, 'https://cdn.simpleicons.org/mistralai/383c4a'],
   [/gemini/i, 'https://cdn.simpleicons.org/googlegemini/383c4a'],
-  [/gpt|o\d/i, 'https://cdn.simpleicons.org/openai/383c4a'],
+  [/gpt|o\d/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg'],
   [/llama/i, 'https://cdn.simpleicons.org/meta/383c4a'],
   [/deepseek/i, 'https://cdn.simpleicons.org/deepseek/383c4a'],
   [/qwen/i, 'https://cdn.simpleicons.org/qwen/383c4a'],
-  [/fireworks/i, 'https://cdn.simpleicons.org/fireworks/383c4a'],
+  [/fireworks/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg'],
 ];
 
 function getModelLogoUrl(model: ModelInfo): string | null {

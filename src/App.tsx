@@ -63,13 +63,15 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background relative">
-      <button
-        onClick={toggleTheme}
-        className="fixed top-6 right-6 z-50 p-2.5 rounded-xl border border-border bg-surface/60 backdrop-blur-md text-foreground hover:bg-muted/70 transition-all cursor-pointer shadow-sm flex items-center justify-center"
-        aria-label="Toggle Theme"
-      >
-        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
+      {phase === 'setup' && (
+        <button
+          onClick={toggleTheme}
+          className="fixed top-6 right-6 z-50 p-2.5 rounded-xl border border-border bg-surface/60 backdrop-blur-md text-foreground hover:bg-muted/70 transition-all cursor-pointer shadow-sm flex items-center justify-center"
+          aria-label="Toggle Theme"
+        >
+          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+      )}
 
       {phase === 'setup' && <SetupScreen onStart={handleStart} />}
       {phase === 'match' && matchConfig && (
