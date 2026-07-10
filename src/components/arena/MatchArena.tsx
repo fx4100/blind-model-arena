@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { HelpCircle, Send, Trophy, RefreshCw, Zap, X } from 'lucide-react';
+import { Heart, HelpCircle, Send, Trophy, RefreshCw, Zap, X } from 'lucide-react';
 import { encode } from 'gpt-tokenizer';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
-import { demoProvider } from '../../providers/demo';
+import { demoProvider, speedChat } from '../../providers/demo';
 import { fetchLLM, saveMatch, saveRound } from '../../services/api';
 import type {
   MatchConfig,
@@ -86,6 +86,7 @@ async function* readSSEStream(
 }
 
 export function MatchArena({ config, onReveal }: MatchArenaProps) {
+  const isSpeed = config.gameMode === 'speed';
   const [prompt, setPrompt] = useState('');
   const [phase, setPhase] = useState<MatchState['phase']>('prompt');
   const [currentRound, setCurrentRound] = useState(1);
@@ -100,6 +101,10 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const [showUnsureInfo, setShowUnsureInfo] = useState(false);
   const [decidedViaUnsure, setDecidedViaUnsure] = useState(false);
   const [unsureUsedThisRound, setUnsureUsedThisRound] = useState(false);
+  const [hearts, setHearts] = useState(3);
+  const [correctGuesses, setCorrectGuesses] = useState(0);
+  const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const feedbackTid = useRef<ReturnType<typeof setTimeout>>();
 
   // Per-round TPS / token stats
   const [currentRoundStats, setCurrentRoundStats] = useState({
@@ -109,20 +114,25 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   });
 
   // Track which model is behind A/B for current round
-  const [shuffle, setShuffle] = useState(() => pickAndShuffle(config.allowedModels));
+  const [shuffle, setShuffle] = useState(() => isSpeed
+    ? { behindA: config.allowedModels[0] ?? { id: 'demo/gpt-4o', name: 'GPT-4o (simulated)', provider: 'openrouter' as const }, behindB: config.allowedModels[0] ?? { id: 'demo/gpt-4o', name: 'GPT-4o (simulated)', provider: 'openrouter' as const } }
+    : pickAndShuffle(config.allowedModels));
 
   // Persistence: match ID saved on first round, reused for subsequent rounds
   const matchIdRef = useRef<string | null>(null);
 
-  // Auto-show token breakdown at round_end for demo mode
+  // Speed mode: track which side was actually faster this round
+  const actualFasterRef = useRef<'a' | 'b'>('a');
+
+  // Auto-show token breakdown at round_end for demo mode (standard only)
   useEffect(() => {
-    if (phase === 'round_end' && config.mode === 'demo') {
+    if (phase === 'round_end' && config.mode === 'demo' && !isSpeed) {
       setShowUnsureInfo(true);
     }
-  }, [phase, config.mode]);
+  }, [phase, config.mode, isSpeed]);
 
   const isFreeMode = config.mode === 'demo';
-  const roundLabel = isFreeMode ? 'Model' : 'Response';
+  const roundLabel = isSpeed ? 'Provider' : isFreeMode ? 'Model' : 'Response';
 
   // ========== Build messages array ==========
   const buildMessages = useCallback(
@@ -211,6 +221,59 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     const t0 = performance.now();
     let timeA = 0;
     let timeB = 0;
+
+    // ---- Speed mode (demo): controlled streaming speeds ----
+    if (isSpeed && config.mode === 'demo') {
+      const fastSideA = Math.random() < 0.5;
+      actualFasterRef.current = fastSideA ? 'a' : 'b';
+
+      const [resultA, resultB] = await Promise.allSettled([
+        (async () => {
+          let text = '';
+          for await (const chunk of speedChat(fastSideA)) {
+            text += chunk.content;
+            throttledSetA(text);
+          }
+          timeA = performance.now() - t0;
+          return text;
+        })(),
+        (async () => {
+          let text = '';
+          for await (const chunk of speedChat(!fastSideA)) {
+            text += chunk.content;
+            throttledSetB(text);
+          }
+          timeB = performance.now() - t0;
+          return text;
+        })(),
+      ]);
+
+      setIsStreamingA(false);
+      setIsStreamingB(false);
+
+      const textA = resultA.status === 'fulfilled' ? resultA.value : '';
+      const textB = resultB.status === 'fulfilled' ? resultB.value : '';
+      if (resultA.status === 'rejected') setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
+      if (resultB.status === 'rejected') setErrorB(resultB.reason instanceof Error ? resultB.reason.message : 'Request failed');
+
+      setResponseA(textA);
+      setResponseB(textB);
+
+      const tokensA = countTokens(textA);
+      const tokensB = countTokens(textB);
+      const tpsA = timeA > 0 ? tokensA / (timeA / 1000) : 0;
+      const tpsB = timeB > 0 ? tokensB / (timeB / 1000) : 0;
+      const inputTokens = countTokens(prompt) + (config.systemPrompt ? countTokens(config.systemPrompt) : 0);
+
+      setCurrentRoundStats({
+        a: { tokens: tokensA, timeMs: Math.round(timeA), tps: tpsA },
+        b: { tokens: tokensB, timeMs: Math.round(timeB), tps: tpsB },
+        inputTokens,
+      });
+
+      setPhase('voting');
+      return;
+    }
 
     // ---- BYOK mode: use Edge Function ----
     if (config.mode === 'byok') {
@@ -339,11 +402,64 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     });
 
     setPhase('voting');
-  }, [prompt, shuffle, buildRequest, buildMessages, config]);
+  }, [prompt, shuffle, buildRequest, buildMessages, config, isSpeed]);
 
   // ========== Vote ==========
   const handleVote = useCallback(
     (vote: 'a' | 'b') => {
+      const finalVote = vote;
+
+      // ---- Speed mode ----
+      if (isSpeed) {
+        const correct = vote === actualFasterRef.current;
+        const newHearts = correct ? hearts : Math.max(0, hearts - 1);
+        const newCorrect = correct ? correctGuesses + 1 : correctGuesses;
+
+        const round: RoundResult = {
+          roundNumber: currentRound,
+          prompt,
+          responseA,
+          responseB,
+          modelBehindA: shuffle.behindA,
+          modelBehindB: shuffle.behindB,
+          tokensA: { output: currentRoundStats.a.tokens, input: currentRoundStats.inputTokens },
+          tokensB: { output: currentRoundStats.b.tokens, input: currentRoundStats.inputTokens },
+          timeMsA: currentRoundStats.a.timeMs,
+          timeMsB: currentRoundStats.b.timeMs,
+          tpsA: currentRoundStats.a.tps,
+          tpsB: currentRoundStats.b.tps,
+          vote: finalVote,
+          userGuess: vote,
+          correctGuess: correct,
+        };
+
+        const newRounds = [...rounds, round];
+        setRounds(newRounds);
+        setHearts(newHearts);
+        setCorrectGuesses(newCorrect);
+        setFeedback(correct ? 'correct' : 'wrong');
+        clearTimeout(feedbackTid.current);
+        feedbackTid.current = setTimeout(() => setFeedback(null), 1000);
+
+        if (currentRound >= config.totalRounds) {
+          const state: MatchState = {
+            phase: 'round_end',
+            config,
+            currentRound,
+            rounds: newRounds,
+            scores: { a: newCorrect, b: config.totalRounds - newCorrect },
+            modelBehindA: shuffle.behindA,
+            modelBehindB: shuffle.behindB,
+            heartsRemaining: newHearts,
+          };
+          onReveal(state, newRounds);
+        } else {
+          setPhase('round_end');
+        }
+        return;
+      }
+
+      // ---- Standard mode ----
       const round: RoundResult = {
         roundNumber: currentRound,
         prompt,
@@ -357,14 +473,14 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
         timeMsB: currentRoundStats.b.timeMs,
         tpsA: currentRoundStats.a.tps,
         tpsB: currentRoundStats.b.tps,
-        vote,
+        vote: finalVote,
         decidedViaUnsure,
       };
 
       const newRounds = [...rounds, round];
       const newScores = {
-        a: scores.a + (vote === 'a' ? 1 : 0),
-        b: scores.b + (vote === 'b' ? 1 : 0),
+        a: scores.a + (finalVote === 'a' ? 1 : 0),
+        b: scores.b + (finalVote === 'b' ? 1 : 0),
       };
 
       setRounds(newRounds);
@@ -439,6 +555,9 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       decidedViaUnsure,
       config,
       onReveal,
+      isSpeed,
+      hearts,
+      correctGuesses,
     ],
   );
 
@@ -458,12 +577,19 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const isBothDone = !isStreamingA && !isStreamingB && phase === 'voting';
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col px-4 py-6">
+    <div className="h-screen overflow-hidden flex flex-col px-4 py-6" style={isSpeed ? { '--color-primary': 'oklch(0.6 0.22 30)' } as React.CSSProperties : undefined}>
       <style>{`
         @keyframes sldIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes shakeH { 0%,100%{translate:0} 20%{translate:-6px} 40%{translate:6px} 60%{translate:-4px} 80%{translate:4px} }
+        @keyframes glowGrn { 0%,100%{filter:drop-shadow(0 0 0 oklch(0.72 0.22 160))} 50%{filter:drop-shadow(0 0 14px oklch(0.72 0.22 160))} }
         .anim-sld { animation: sldIn 0.5s ease-out both; }
         .anim-sld-1 { animation-delay: 0.1s; }
         .anim-sld-2 { animation-delay: 0.25s; }
+        .anim-shake { animation: shakeH 0.4s ease-out; }
+        .anim-glow-green { animation: glowGrn 1s ease-out; }
+        [style*="--color-primary"] button:hover { background-color: color-mix(in srgb, oklch(0.6 0.22 30) 85%, black) !important; }
+        [style*="--color-primary"] button:active { background-color: color-mix(in srgb, oklch(0.6 0.22 30) 70%, black) !important; }
+        [style*="--color-primary"] button:not(.text-on-primary):hover { color: white !important; }
       `}</style>
 
       {/* Header */}
@@ -475,8 +601,21 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           </p>
         </div>
 
-        {/* Score — split grid structure, centered on mobile */}
-        {(() => {
+        {/* Score / Hearts */}
+        {isSpeed ? (
+          <div className={`flex items-center gap-1 self-center sm:self-auto text-lg ${feedback === 'wrong' ? 'anim-shake' : ''} ${feedback === 'correct' ? 'anim-glow-green' : ''}`}>
+            {Array.from({ length: 3 }, (_, i) => (
+              <Heart
+                key={i}
+                size={20}
+                className={i < hearts ? 'fill-destructive text-destructive' : 'fill-none text-foreground/20'}
+              />
+            ))}
+            <span className="ml-2 text-sm text-foreground/50 font-mono">
+              {correctGuesses}/{config.totalRounds}
+            </span>
+          </div>
+        ) : (() => {
           const aWinning = scores.a > scores.b;
           const bWinning = scores.b > scores.a;
           const aColor = aWinning ? 'text-primary' : 'text-foreground/50';
@@ -581,30 +720,32 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           <Card padding="md" className="rounded-none border border-border">
             <div className="flex flex-col items-center gap-4">
               <p className="font-heading font-semibold text-foreground">
-                Which response was better?
+                {isSpeed ? 'Which came in faster?' : 'Which response was better?'}
               </p>
               <div className="flex items-center gap-3 flex-wrap justify-center">
                 <Button variant="primary" onClick={() => handleVote('a')} size="lg" className="anim-sld anim-sld-1">
-                  <Trophy size={18} />
-                  Model A wins
+                  {isSpeed ? <Zap size={18} /> : <Trophy size={18} />}
+                  {isSpeed ? 'A was faster' : 'Model A wins'}
                 </Button>
                 <Button variant="secondary" onClick={() => handleVote('b')} size="lg" className="anim-sld anim-sld-2">
-                  <Trophy size={18} />
-                  Model B wins
+                  {isSpeed ? <Zap size={18} /> : <Trophy size={18} />}
+                  {isSpeed ? 'B was faster' : 'Model B wins'}
                 </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setShowUnsureInfo(true);
-                    setDecidedViaUnsure(true);
-                    setUnsureUsedThisRound(true);
-                  }}
-                  size="lg"
-                  disabled={unsureUsedThisRound}
-                >
-                  <HelpCircle size={18} />
-                  Unsure
-                </Button>
+                {!isSpeed && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowUnsureInfo(true);
+                      setDecidedViaUnsure(true);
+                      setUnsureUsedThisRound(true);
+                    }}
+                    size="lg"
+                    disabled={unsureUsedThisRound}
+                  >
+                    <HelpCircle size={18} />
+                    Unsure
+                  </Button>
+                )}
               </div>
             </div>
           </Card>
@@ -612,7 +753,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       )}
 
       {/* TPS & Token breakdown */}
-      {showUnsureInfo && (phase === 'voting' || phase === 'round_end') && (
+      {!isSpeed && showUnsureInfo && (phase === 'voting' || phase === 'round_end') && (
         <div className="max-w-6xl mx-auto w-full mt-2 shrink-0 anim-sld anim-sld-2">
           <Card padding="md" className="rounded-none border border-border bg-surface">
             <div className="flex items-center justify-between mb-3">
@@ -652,7 +793,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
                     </span>
                   </p>
                   <p className="flex items-center gap-1">
-                    <Zap size={14} className="text-accent" />
+                    <Zap size={14} className="text-amber-400" />
                     <span className="font-semibold">
                       {formatTps(currentRoundStats.a.tps)} tok/s
                     </span>
@@ -684,7 +825,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
                     </span>
                   </p>
                   <p className="flex items-center gap-1">
-                    <Zap size={14} className="text-accent" />
+                    <Zap size={14} className="text-amber-400" />
                     <span className="font-semibold">
                       {formatTps(currentRoundStats.b.tps)} tok/s
                     </span>

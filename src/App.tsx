@@ -7,6 +7,8 @@ import type { AppPhase, MatchConfig, MatchState, RoundResult } from './types';
 interface MatchResults {
   rounds: RoundResult[];
   scores: { a: number; b: number };
+  gameMode: 'standard' | 'speed';
+  heartsRemaining?: number;
 }
 
 export default function App() {
@@ -48,6 +50,8 @@ export default function App() {
       setResults({
         rounds,
         scores: state.scores,
+        gameMode: state.config.gameMode,
+        heartsRemaining: state.heartsRemaining,
       });
       setPhase('reveal');
     },
@@ -71,6 +75,8 @@ export default function App() {
           rounds={results.rounds}
           scores={results.scores}
           onPlayAgain={handlePlayAgain}
+          gameMode={results.gameMode}
+          heartsRemaining={results.heartsRemaining}
         />
       )}
     </div>

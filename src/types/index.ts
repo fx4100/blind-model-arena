@@ -6,6 +6,8 @@ export type AppPhase = 'setup' | 'match' | 'reveal';
 
 export type AccessMode = 'byok' | 'demo';
 
+export type GameMode = 'standard' | 'speed';
+
 // All supported LLM backends routed through the Edge Function
 export type LlmProvider = 'openai' | 'openrouter' | 'gemini' | 'mistral' | 'fireworks' | 'custom';
 
@@ -22,12 +24,21 @@ export interface ModelInfo {
   provider: ProviderId;
 }
 
+export interface SpeedProviderConfig {
+  provider: LlmProvider;
+  apiKey: string;
+  endpoint?: string;
+}
+
 export interface MatchConfig {
   mode: AccessMode;
+  gameMode: GameMode;
   provider?: LlmProvider;
   apiKey?: string;
   /** Endpoint URL for custom provider */
   endpoint?: string;
+  /** Speed-mode: two provider configs (Fireworks + AMD) */
+  speedProviders?: [SpeedProviderConfig, SpeedProviderConfig];
   /** Pool of allowed models — two are randomly selected each round */
   allowedModels: ModelInfo[];
   systemPrompt: string;
@@ -57,6 +68,10 @@ export interface RoundResult {
   vote: 'a' | 'b';
   /** True when the user clicked "Unsure" to peek at cost/tokens before voting A or B. */
   decidedViaUnsure?: boolean;
+  /** Speed mode: user's guess for which was faster */
+  userGuess?: 'a' | 'b';
+  /** Speed mode: was the guess correct */
+  correctGuess?: boolean;
 }
 
 export interface MatchState {
@@ -67,6 +82,8 @@ export interface MatchState {
   scores: { a: number; b: number };
   modelBehindA: ModelInfo;
   modelBehindB: ModelInfo;
+  /** Speed mode: hearts remaining (starts at 3) */
+  heartsRemaining?: number;
 }
 
 // ---------------------------------------------------------------------------

@@ -125,20 +125,15 @@ export const demoProvider: ModelProvider = {
   needsApiKey: false,
 
   async fetchModels(): Promise<ModelInfo[]> {
-    // Simulate a short network delay
     await sleep(600);
     return [...DEMO_MODELS];
   },
 
   async *chat(_request: ChatRequest): AsyncGenerator<ChatChunk> {
     const text = pickNextResponse();
-
-    // Simulate per-character streaming — yield DELTAS, not cumulative text,
-    // so the arena's `text += chunk.content` builds the response correctly.
     let sent = '';
     for (let i = 0; i < text.length; i++) {
       sent += text[i];
-      // Yield every ~6 chars for a chunky-but-fast stream
       if (i % 6 === 0 || i === text.length - 1) {
         const delta = sent;
         sent = '';
@@ -146,10 +141,28 @@ export const demoProvider: ModelProvider = {
         yield { content: delta, done: false };
       }
     }
-
-    // Final chunk
     yield { content: '', done: true };
   },
 };
+
+/** Speed-mode demo: one side streams fast, the other slow */
+const SPEED_FAST_MS = [5, 12];
+const SPEED_SLOW_MS = [30, 60];
+
+export async function* speedChat(fast: boolean): AsyncGenerator<ChatChunk> {
+  const text = pickNextResponse();
+  const [min, max] = fast ? SPEED_FAST_MS : SPEED_SLOW_MS;
+  let sent = '';
+  for (let i = 0; i < text.length; i++) {
+    sent += text[i];
+    if (i % 6 === 0 || i === text.length - 1) {
+      const delta = sent;
+      sent = '';
+      await sleep(min + Math.random() * (max - min));
+      yield { content: delta, done: false };
+    }
+  }
+  yield { content: '', done: true };
+}
 
 export { DEMO_MODELS };

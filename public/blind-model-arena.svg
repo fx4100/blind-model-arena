@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#121316"/>
+  <!-- arena pillars -->
+  <rect x="7" y="9" width="3" height="17" rx="1.5" fill="#f1f3f9"/>
+  <rect x="22" y="9" width="3" height="17" rx="1.5" fill="#f1f3f9"/>
+  <!-- arena arch -->
+  <path d="M8.5 12C8.5 7 11 4 16 4s7.5 3 7.5 8" stroke="#f1f3f9" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- blindfold band -->
+  <rect x="5" y="15" width="22" height="5" rx="2.5" fill="#6366f1"/>
+  <!-- blindfold eyeholes -->
+  <circle cx="13" cy="17.5" r="2.5" fill="#121316"/>
+  <circle cx="19" cy="17.5" r="2.5" fill="#121316"/>
+</svg>

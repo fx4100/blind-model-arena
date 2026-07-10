@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useDeferredValue, memo, useEffect, useRef } from 'react';
-import { AlertTriangle, Check, Key, Search, ShieldBan, Sparkles, Sun, Moon, Wand2, X } from 'lucide-react';
+import { AlertTriangle, Check, Key, Search, ShieldBan, Sparkles, Sun, Moon, Wand2, X, Zap } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
@@ -8,7 +8,7 @@ import { Spinner } from '../ui/Spinner';
 import { VirtualList } from '../ui/VirtualList';
 import { demoProvider } from '../../providers/demo';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
-import type { AccessMode, LlmProvider, ModelInfo, MatchConfig } from '../../types';
+import type { AccessMode, GameMode, LlmProvider, ModelInfo, MatchConfig } from '../../types';
 import { LogoRainCanvas } from './LogoRainCanvas';
 import { getEdgeFunctionUrl } from '../../services/api';
 
@@ -264,6 +264,7 @@ const ModelRow = memo(function ModelRow({ model, enabled, mode, onToggle }: Mode
 export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // -- Mode selection --
   const [mode, setMode] = useState<AccessMode | null>(null);
+  const [customGameMode, setCustomGameMode] = useState<GameMode>('standard');
 
   // -- BYOK state --
   const [selectedProvider, setSelectedProvider] = useState<LlmProvider | null>(null);
@@ -278,6 +279,9 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // -- Shared config --
   const [systemPrompt, setSystemPrompt] = useState('');
   const [totalRounds, setTotalRounds] = useState(5);
+
+  // -- Speed mode state --
+  const [speedExpanded, setSpeedExpanded] = useState(false);
 
   // -- Blacklist / allowed models (set of model IDs) --
   const [enabledIds, setEnabledIds] = useState<Set<string>>(new Set());
@@ -503,6 +507,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // ========== Demo mode handlers ==========
   const handleDemoMode = useCallback(async () => {
     setMode('demo');
+    setCustomGameMode('standard');
     try {
       const m = await demoProvider.fetchModels();
       setModels(m);
@@ -512,6 +517,22 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       // Demo never fails
     }
   }, [selectionMode, initEnabledIds]);
+
+  // ========== Speed mode handlers ==========
+  const handleSpeedMode = useCallback(async (rounds: number) => {
+    try {
+      const m = await demoProvider.fetchModels();
+      onStart({
+        mode: 'demo',
+        gameMode: 'speed',
+        allowedModels: [m[0]],
+        systemPrompt: '',
+        totalRounds: rounds,
+      });
+    } catch {
+      // Demo never fails
+    }
+  }, [onStart]);
 
   // ========== Fetch models from BYOK provider ==========
   const handleFetchModels = useCallback(async () => {
@@ -564,23 +585,26 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
 
   // ========== Start match ==========
   const handleStart = useCallback(() => {
+    const isSpeed = customGameMode === 'speed';
     const allowedModels =
       selectionMode === 'whitelist'
         ? models.filter((m) => enabledIds.has(m.id))
         : models.filter((m) => !enabledIds.has(m.id));
 
-    if (allowedModels.length < 2) return;
+    if (isSpeed ? allowedModels.length < 1 : allowedModels.length < 2) return;
 
     if (mode === 'demo') {
       onStart({
         mode: 'demo',
+        gameMode: customGameMode,
         allowedModels,
         systemPrompt,
-        totalRounds,
+        totalRounds: isSpeed ? 7 : totalRounds,
       });
     } else if (mode === 'byok' && selectedProvider) {
       onStart({
         mode: 'byok',
+        gameMode: 'standard',
         provider: selectedProvider,
         apiKey: apiKey || undefined,
         endpoint: selectedProvider === 'custom' ? customEndpoint : undefined,
@@ -589,14 +613,15 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         totalRounds,
       });
     }
-  }, [mode, selectedProvider, apiKey, customEndpoint, models, enabledIds, selectionMode, systemPrompt, totalRounds, onStart]);
+  }, [mode, selectedProvider, apiKey, customEndpoint, models, enabledIds, selectionMode, systemPrompt, totalRounds, customGameMode, onStart]);
 
   // ========== Memoised filtered list ==========
   const currentModels = models;
 
+  const isSpeed = customGameMode === 'speed';
   const checkedCount = currentModels.filter((m) => enabledIds.has(m.id)).length;
   const poolSize = selectionMode === 'whitelist' ? checkedCount : currentModels.length - checkedCount;
-  const canStart = poolSize >= 2;
+  const canStart = isSpeed ? poolSize >= 1 : poolSize >= 2;
 
   // Select all / deselect all
   const selectAll = useCallback(() => {
@@ -679,6 +704,40 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
               </div>
             </div>
           </Card>
+
+          <div className={`rounded-xl border bg-surface/70 backdrop-blur-md overflow-hidden transition-all duration-200 ${speedExpanded ? '' : 'border-border hover:border-destructive cursor-pointer'}`}>
+            <div
+              onClick={speedExpanded ? undefined : () => setSpeedExpanded(true)}
+              className={`px-6 py-5 ${speedExpanded ? '' : 'cursor-pointer'}`}
+            >
+              <div className="flex items-start gap-4">
+                <Zap size={24} className="text-destructive shrink-0 mt-1" />
+                <div className="flex-1">
+                  <h3 className="font-heading font-semibold text-lg mb-1">Catch the Speeder</h3>
+                  <p className="text-sm text-foreground/60">
+                    Same model, two backends. Watch text streaming speed and guess which one is faster.
+                    Survival mode — 3 hearts.
+                  </p>
+                </div>
+              </div>
+              {speedExpanded && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-sm font-medium text-foreground/70 mb-3">Rounds:</p>
+                  <div className="flex gap-2">
+                    {[3, 5, 7, 10].map((n) => (
+                      <button
+                        key={n}
+                        onClick={() => handleSpeedMode(n)}
+                        className="flex-1 px-4 py-3 rounded-xl border border-border text-sm font-medium cursor-pointer transition-all bg-muted text-foreground/70 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
 
           <Card hover padding="lg" onClick={handleBYOKMode} className="text-left rounded-xl border border-border bg-surface/70 backdrop-blur-md">
             <div className="flex items-start gap-4">
@@ -794,11 +853,15 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     <div className="h-screen overflow-hidden flex flex-col items-center px-4 py-3">
       <canvas ref={ps2Ref} className="fixed inset-0 pointer-events-none z-0" />
       <div className="w-full max-w-2xl flex flex-col h-full relative z-10">
-        <h2 className="font-heading text-2xl font-bold text-foreground mb-1">Select Models</h2>
+        <h2 className="font-heading text-2xl font-bold text-foreground mb-1">
+          {isSpeed ? 'Select Model' : 'Select Models'}
+        </h2>
         <p className="text-foreground/60 mb-1 text-sm">
-          {selectionMode === 'whitelist'
-            ? 'Enable the models you want in the pool. Two of those will be randomly picked.'
-            : 'Models you mark as blocked will be excluded. All others are fair game in the arena.'}
+          {isSpeed
+            ? 'Pick at least one model for response variety. Both backends run the same model — speed depends on the provider.'
+            : selectionMode === 'whitelist'
+              ? 'Enable the models you want in the pool. Two of those will be randomly picked.'
+              : 'Models you mark as blocked will be excluded. All others are fair game in the arena.'}
         </p>
 
         {/* Whitelist / Blacklist Toggle */}
@@ -878,17 +941,19 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
 
         {/* Pool count */}
         <div className="flex items-center gap-2 mb-2 shrink-0">
-          <Badge variant={poolSize >= 2 ? 'success' : 'warning'}>
+          <Badge variant={poolSize >= (isSpeed ? 1 : 2) ? 'success' : 'warning'}>
             {poolSize} model{poolSize !== 1 ? 's' : ''} in pool
           </Badge>
-          {poolSize < 2 && (
+          {poolSize < (isSpeed ? 1 : 2) && (
             <span className="text-sm text-foreground/50">
-              {selectionMode === 'whitelist'
-                ? `Enable at least ${2 - poolSize} more`
-                : `Unblock at least ${2 - poolSize} more`}
+              {isSpeed
+                ? 'Select at least 1 model'
+                : selectionMode === 'whitelist'
+                  ? `Enable at least ${2 - poolSize} more`
+                  : `Unblock at least ${2 - poolSize} more`}
             </span>
           )}
-          {selectionMode === 'blacklist' && checkedCount > 0 && (
+          {selectionMode === 'blacklist' && checkedCount > 0 && !isSpeed && (
             <span className="text-xs text-foreground/40 ml-1">
               ({checkedCount} blocked)
             </span>
@@ -905,30 +970,37 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
             hint="Same prompt sent to both models"
           />
 
-          <div className="flex items-center gap-4">
-            <label className="text-sm font-medium text-foreground">Rounds:</label>
-            <div className="flex gap-2">
-              {[3, 5, 7].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setTotalRounds(n)}
-                  className={`px-4 py-2 rounded-xl border border-border text-sm font-medium cursor-pointer transition-all
-                    ${totalRounds === n
-                      ? 'bg-primary text-on-primary'
-                      : 'bg-muted text-foreground/70 hover:bg-muted/70'
-                    }`}
-                >
-                  {n}
-                </button>
-              ))}
+          {isSpeed ? (
+            <div className="flex items-center gap-2 text-sm text-foreground/50">
+              <Zap size={14} />
+              <span>7 rounds · 3 hearts · no unsure</span>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <label className="text-sm font-medium text-foreground">Rounds:</label>
+              <div className="flex gap-2">
+                {[3, 5, 7].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setTotalRounds(n)}
+                    className={`px-4 py-2 rounded-xl border border-border text-sm font-medium cursor-pointer transition-all
+                      ${totalRounds === n
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-muted text-foreground/70 hover:bg-muted/70'
+                      }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Start */}
         <Button onClick={handleStart} disabled={!canStart} size="lg" className="w-full shrink-0">
-          <Wand2 size={20} />
-          Start Blind Match
+          {isSpeed ? <Zap size={20} /> : <Wand2 size={20} />}
+          {isSpeed ? 'Start Speed Match' : 'Start Blind Match'}
         </Button>
 
         <button

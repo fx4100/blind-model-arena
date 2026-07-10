@@ -9,7 +9,11 @@ interface RevealScreenProps {
   rounds: RoundResult[];
   scores: { a: number; b: number };
   onPlayAgain: () => void;
+  gameMode?: 'standard' | 'speed';
+  heartsRemaining?: number;
 }
+
+const AMD_ARROW = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAwIDEwMDAiPjxwYXRoIGQ9Ik00Ni4xLDc3NS4zVjU5Ny4xbDI1NC40LTI1NC40djM1Ni41aDM1Ni41TDQwMi43LDk1My42SDQ2LjFWNzc1LjN6IE04MjkuNyw4MjIuN2wtMTIzLTEyM1YyOTQuMUgzMDEuMUw1My40LDQ2LjRoODk5LjlsMC4xLDQ0NS41bDAuNCw0NDcuOGMwLjEsMS40LDAsMi44LTAuNCw0LjJDOTUyLjksOTQ1LjMsOTIwLjgsOTEzLjgsODI5LjcsODIyLjdMODI5LjcsODIyLjd6Ii8+PC9zdmc+';
 
 const MODEL_LOGOS: [RegExp, string][] = [
   [/claude|sonnet|haiku|opus|fable/i, 'https://cdn.simpleicons.org/anthropic/383c4a'],
@@ -20,6 +24,7 @@ const MODEL_LOGOS: [RegExp, string][] = [
   [/deepseek/i, 'https://cdn.simpleicons.org/deepseek/383c4a'],
   [/qwen/i, 'https://cdn.simpleicons.org/qwen/383c4a'],
   [/fireworks/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg'],
+  [/amd|radeon/i, AMD_ARROW],
 ];
 
 function getModelLogoUrl(model: ModelInfo): string | null {
@@ -85,9 +90,17 @@ function tallyModelSpeed(rounds: RoundResult[]): Map<string, ModelSpeedStats> {
   return map;
 }
 
-export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps) {
-  const modelVotes = tallyModelVotes(rounds);
-  const sortedByVotes = [...modelVotes.values()].sort((a, b) => b.votes - a.votes);
+export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard', heartsRemaining }: RevealScreenProps) {
+  const isSpeed = gameMode === 'speed';
+
+  // Speed mode stats
+  const correctCount = isSpeed ? rounds.filter(r => r.correctGuess).length : 0;
+  const wrongCount = isSpeed ? rounds.length - correctCount : 0;
+  const survived = isSpeed ? (heartsRemaining ?? 0) > 0 : false;
+
+  // Model vote tally (standard mode)
+  const modelVotes = isSpeed ? new Map() : tallyModelVotes(rounds);
+  const sortedByVotes = isSpeed ? [] : [...modelVotes.values()].sort((a, b) => b.votes - a.votes);
   const winner = sortedByVotes.length > 0 ? sortedByVotes[0] : null;
   const runnerUp = sortedByVotes.length > 1 ? sortedByVotes[1] : null;
 
@@ -95,7 +108,9 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
   const speedEntries = [...modelSpeed.values()];
 
   const totalVotes = scores.a + scores.b;
-  const pctA = totalVotes > 0 ? (scores.a / totalVotes) * 100 : 50;
+
+  const topModel = isSpeed ? rounds[0]?.modelBehindA ?? null : winner?.model ?? null;
+  const secondModel = isSpeed ? rounds[0]?.modelBehindB ?? null : runnerUp?.model ?? null;
 
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set());
   const [bgReady, setBgReady] = useState(false);
@@ -107,8 +122,14 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
   }, []);
 
   useEffect(() => {
-    if (!bgReady || !topModel) return;
-    const url = getModelLogoUrl(topModel);
+    if (!bgReady) return;
+    const isDark = document.documentElement.classList.contains('dark');
+    let url: string | null = null;
+    if (isSpeed) {
+      url = 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg';
+    } else if (topModel) {
+      url = getModelLogoUrl(topModel);
+    }
     if (!url) return;
 
     const img = new Image();
@@ -132,7 +153,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
     const metSz = () => 24 + Math.random() * 20;
 
     interface Met {
-      x: number; y: number; vx: number; vy: number; sz: number; op: number;
+      x: number; y: number; vx: number; vy: number; sz: number; op: number; rot: number;
     }
 
     let mets: Met[] = [];
@@ -140,18 +161,23 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
 
     const spawn = () => {
       const max = metCnt();
+      const cw = canvas.width;
       while (mets.length < max) {
+        const sz = metSz();
         const spd = metSpd();
         mets.push({
-          x: -metSz() + Math.random() * canvas.width * 0.4,
-          y: -metSz() * 2 + Math.random() * canvas.height * 0.3,
+          x: -sz - Math.random() * cw * 0.6,
+          y: -sz - Math.random() * ch * 0.5,
           vx: spd * 1.1,
           vy: spd,
-          sz: metSz(),
-          op: 0.15 + Math.random() * 0.25,
+          sz,
+          op: 0.12 + Math.random() * 0.2,
+          rot: Math.atan2(1, 1.1),
         });
       }
     };
+
+    const ch = canvas.height;
 
     img.onload = () => {
       spawn();
@@ -165,8 +191,9 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
 
           ctx.save();
           ctx.globalAlpha = m.op;
+          if (isDark) ctx.filter = 'invert(1)';
           ctx.translate(m.x, m.y);
-          ctx.rotate(Math.PI / 6);
+          ctx.rotate(m.rot);
           ctx.drawImage(img, -m.sz / 2, -m.sz / 2, m.sz, m.sz);
           ctx.restore();
         }
@@ -186,7 +213,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
       cancelAnimationFrame(aid);
       window.removeEventListener('resize', resize);
     };
-  }, [bgReady, topModel]);
+  }, [bgReady, topModel, isSpeed]);
 
   const toggleRound = (n: number) => {
     setExpandedRounds((prev) => {
@@ -197,11 +224,8 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
     });
   };
 
-  const topModel = winner?.model;
-  const secondModel = runnerUp?.model;
-
   return (
-    <div className="min-h-screen flex flex-col px-4 py-8 relative overflow-hidden bg-background">
+    <div className="min-h-screen flex flex-col px-4 py-8 relative overflow-hidden bg-background" style={isSpeed ? { '--color-primary': 'oklch(0.6 0.22 30)' } as React.CSSProperties : undefined}>
       <style>{`
         @keyframes sldIn {
           from { opacity: 0; transform: translateY(24px); }
@@ -226,16 +250,19 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         .anim-sld-4 { animation-delay: 0.55s; }
         .anim-sld-5 { animation-delay: 0.7s; }
         .anim-glow { animation: glowPulse 2.5s ease-in-out infinite; }
+        [style*="--color-primary"] button:hover { background-color: color-mix(in srgb, oklch(0.6 0.22 30) 85%, black) !important; }
+        [style*="--color-primary"] button:active { background-color: color-mix(in srgb, oklch(0.6 0.22 30) 70%, black) !important; }
+        [style*="--color-primary"] button:not(.text-on-primary):hover { color: white !important; }
       `}</style>
 
       {/* Background model logos */}
-      {bgReady && topModel && (
-        <div className="fixed inset-0 pointer-events-none z-0 flex flex-col items-center justify-between py-[12vh] select-none">
+      {bgReady && (isSpeed || topModel) && (
+        <div className="fixed inset-0 pointer-events-none z-0 flex flex-col items-center justify-start pt-[6vh] gap-[18vh] select-none">
           <div className="anim-sld-bg" style={{
             animation: 'sldInBg 1s ease-out 0.3s both, rolSlw 45s linear 1.3s infinite',
           }}>
             <img
-              src={getModelLogoUrl(topModel) ?? ''}
+              src={isSpeed ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : (getModelLogoUrl(topModel!) ?? '')}
               alt=""
               className="w-48 h-48 opacity-[0.04] grayscale"
             />
@@ -244,7 +271,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
             animation: 'sldInBg 1s ease-out 0.6s both, rolSlw 45s linear 1.6s infinite reverse',
           }}>
             <img
-              src={getModelLogoUrl(secondModel ?? topModel) ?? ''}
+              src={isSpeed ? AMD_ARROW : (getModelLogoUrl(secondModel ?? topModel!) ?? '')}
               alt=""
               className="w-48 h-48 opacity-[0.04] grayscale"
             />
@@ -259,12 +286,35 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         {/* ====== HEADER ====== */}
         <div className="text-center mb-8 anim-sld anim-sld-1">
           <div className="relative inline-block">
-            <Trophy size={52} className="mx-auto mb-3 text-primary anim-glow" />
+            {isSpeed ? (
+              <Zap size={52} className="mx-auto mb-3 text-amber-400 anim-glow" />
+            ) : (
+              <Trophy size={52} className="mx-auto mb-3 text-primary anim-glow" />
+            )}
           </div>
           <h1 className="font-heading text-3xl font-bold text-foreground mb-2 uppercase tracking-wider">
-            Match Complete
+            {isSpeed ? 'Catch the Speeder' : 'Match Complete'}
           </h1>
-          {winner ? (
+          {isSpeed ? (
+            <>
+              <p className="text-xl text-foreground/70 mb-1">
+                {survived ? (
+                  <>
+                    <span className="font-heading font-semibold text-amber-400">Survived!</span>{' '}
+                    <span className="text-foreground/60">with {heartsRemaining} heart{heartsRemaining !== 1 ? 's' : ''} remaining</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-heading font-semibold text-destructive">Eliminated</span>{' '}
+                    <span className="text-foreground/60">— lost all hearts</span>
+                  </>
+                )}
+              </p>
+              <p className="text-sm text-foreground/40">
+                {correctCount} correct{wrongCount > 0 ? ` · ${wrongCount} wrong` : ''} · {rounds.length} rounds
+              </p>
+            </>
+          ) : winner ? (
             <>
               <p className="text-xl text-foreground/70 mb-1">
                 <Crown size={20} className="inline text-yellow-500 align-text-top mr-1" />
@@ -292,36 +342,74 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         {/* ====== SCORE BAR ====== */}
         <div className="mb-6 anim-sld anim-sld-2">
           <Card padding="lg" className="rounded-none border border-border">
-            <h2 className="font-heading font-semibold text-lg mb-4 text-foreground">Score</h2>
-            <div className="h-8 w-full rounded-none bg-muted overflow-hidden flex">
-              {sortedByVotes.length > 0 && (
-                <div
-                  className="h-full bg-primary transition-all duration-700 flex items-center justify-center text-xs font-bold text-on-primary truncate px-1"
-                  style={{ width: `${sortedByVotes.length > 1 ? (sortedByVotes[0].votes / (sortedByVotes[0].votes + sortedByVotes[1].votes)) * 100 : 100}%` }}
-                >
-                  {sortedByVotes[0].model.name} {sortedByVotes[0].votes}
+            <h2 className="font-heading font-semibold text-lg mb-4 text-foreground">
+              {isSpeed ? 'Guesses' : 'Score'}
+            </h2>
+            {isSpeed ? (
+              <>
+                <div className="h-8 w-full rounded-none bg-muted overflow-hidden flex">
+                  {correctCount > 0 && (
+                    <div
+                      className="h-full bg-emerald-500 transition-all duration-700 flex items-center justify-center text-xs font-bold text-on-primary truncate px-1"
+                      style={{ width: `${(correctCount / rounds.length) * 100}%` }}
+                    >
+                      Correct {correctCount}
+                    </div>
+                  )}
+                  {wrongCount > 0 && (
+                    <div
+                      className="h-full bg-destructive/40 flex-1 transition-all duration-700 flex items-center justify-center text-xs font-bold text-foreground truncate px-1"
+                    >
+                      Wrong {wrongCount}
+                    </div>
+                  )}
                 </div>
-              )}
-              {sortedByVotes.length > 1 && (
-                <div
-                  className="h-full bg-foreground/20 transition-all duration-700 flex items-center justify-center text-xs font-bold text-foreground truncate px-1"
-                >
-                  {sortedByVotes[1].model.name} {sortedByVotes[1].votes}
+                <div className="flex justify-between text-xs text-foreground/50 mt-1">
+                  {correctCount > 0 && (
+                    <span className="text-emerald-400 font-semibold">
+                      Correct — {correctCount}/{rounds.length}
+                    </span>
+                  )}
+                  {wrongCount > 0 && (
+                    <span className="text-foreground/50">
+                      Wrong — {wrongCount}/{rounds.length}
+                    </span>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="flex justify-between text-xs text-foreground/50 mt-1">
-              {sortedByVotes.length > 0 && (
-                <span className="anim-sld anim-sld-1 text-primary font-semibold truncate mr-2">
-                  {sortedByVotes[0].model.name} — {sortedByVotes[0].votes} vote{sortedByVotes[0].votes !== 1 ? 's' : ''}
-                </span>
-              )}
-              {sortedByVotes.length > 1 && (
-                <span className="anim-sld anim-sld-2 text-foreground/50 truncate">
-                  {sortedByVotes[1].model.name} — {sortedByVotes[1].votes} vote{sortedByVotes[1].votes !== 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
+              </>
+            ) : (
+              <>
+                <div className="h-8 w-full rounded-none bg-muted overflow-hidden flex">
+                  {sortedByVotes.length > 0 && (
+                    <div
+                      className="h-full bg-primary transition-all duration-700 flex items-center justify-center text-xs font-bold text-on-primary truncate px-1"
+                      style={{ width: `${sortedByVotes.length > 1 ? (sortedByVotes[0].votes / (sortedByVotes[0].votes + sortedByVotes[1].votes)) * 100 : 100}%` }}
+                    >
+                      {sortedByVotes[0].model.name} {sortedByVotes[0].votes}
+                    </div>
+                  )}
+                  {sortedByVotes.length > 1 && sortedByVotes[1].votes > 0 && (
+                    <div
+                      className="h-full bg-foreground/20 flex-1 transition-all duration-700 flex items-center justify-center text-xs font-bold text-foreground truncate px-1"
+                    >
+                      {sortedByVotes[1].model.name} {sortedByVotes[1].votes}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-between text-xs text-foreground/50 mt-1">
+                  {sortedByVotes.length > 0 && (
+                    <span className="anim-sld anim-sld-1 text-primary font-semibold truncate mr-2">
+                      {sortedByVotes[0].model.name} — {sortedByVotes[0].votes} vote{sortedByVotes[0].votes !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {sortedByVotes.length > 1 && sortedByVotes[1].votes > 0 && (
+                    <span className="anim-sld anim-sld-2 text-foreground/50 truncate">
+                      {sortedByVotes[1].model.name} — {sortedByVotes[1].votes} vote{sortedByVotes[1].votes !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </Card>
         </div>
 
@@ -331,19 +419,20 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
             <h2 className="font-heading font-semibold text-lg mb-4 text-foreground">Timeline</h2>
             <div className="flex justify-center items-center">
               {rounds.map((r, i) => {
-                const isAWin = r.vote === 'a';
+                const isCorrect = isSpeed ? r.correctGuess : r.vote === 'a';
+                const cls = isCorrect ? 'border-emerald-500 bg-emerald-500' : 'border-destructive bg-destructive';
                 return (
                   <div key={r.roundNumber} className="flex items-center">
                     <div className="flex flex-col items-center w-8">
                       <div
-                        className="w-5 h-5 rounded-full border-2 border-primary bg-primary flex items-center justify-center text-[10px] font-bold text-on-primary cursor-pointer transition-all hover:scale-125"
+                        className={`w-5 h-5 rounded-full border-2 ${cls} flex items-center justify-center text-[10px] font-bold text-on-primary cursor-pointer transition-all hover:scale-125`}
                         onClick={() => toggleRound(r.roundNumber)}
-                        title={`Round ${r.roundNumber}: ${isAWin ? 'A' : 'B'} won`}
+                        title={`Round ${r.roundNumber}: ${isSpeed ? (r.correctGuess ? 'Correct' : 'Wrong') : isCorrect ? 'A won' : 'B won'}`}
                       >
                         {r.roundNumber}
                       </div>
-                      <span className="text-[10px] mt-1 font-heading text-primary">
-                        {isAWin ? 'A' : 'B'}
+                      <span className={`text-[10px] mt-1 font-heading ${isCorrect ? 'text-emerald-400' : 'text-destructive'}`}>
+                        {isSpeed ? (r.correctGuess ? '✓' : '✗') : isCorrect ? 'A' : 'B'}
                       </span>
                     </div>
                     {i < rounds.length - 1 && (
@@ -363,40 +452,68 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
               <Zap size={20} className="text-primary" />
               Speed
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {speedEntries.sort((a, b) => b.avgTps - a.avgTps).map((s, i, arr) => {
-                const maxTps = arr[0]?.avgTps || 1;
-                const barPct = (s.avgTps / maxTps) * 100;
-                return (
-                  <div key={s.model.id} className="p-4 rounded-none bg-surface border border-border">
-                    <div className="flex items-center gap-2 mb-3">
-                      {getModelLogoUrl(s.model) && (
-                        <img src={getModelLogoUrl(s.model)!} alt="" className="w-4 h-4 shrink-0 theme-logo" />
-                      )}
-                      <p className="font-heading font-semibold text-sm text-primary truncate">
-                        {s.model.name}
-                      </p>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div>
-                        <p className="text-xs text-foreground/50 uppercase tracking-wider">Avg TPS</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-2 rounded-none bg-muted overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-none transition-all duration-700"
-                              style={{ width: `${barPct}%` }}
-                            />
+            {isSpeed ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {(() => {
+                  const aTot = rounds.reduce((acc, r) => ({ tps: acc.tps + r.tpsA, cnt: acc.cnt + 1 }), { tps: 0, cnt: 0 });
+                  const bTot = rounds.reduce((acc, r) => ({ tps: acc.tps + r.tpsB, cnt: acc.cnt + 1 }), { tps: 0, cnt: 0 });
+                  const aAvg = aTot.cnt > 0 ? aTot.tps / aTot.cnt : 0;
+                  const bAvg = bTot.cnt > 0 ? bTot.tps / bTot.cnt : 0;
+                  const max = Math.max(aAvg, bAvg) || 1;
+                  const provs = [
+                    { name: 'Fireworks', avgTps: aAvg, logo: 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' },
+                    { name: 'AMD', avgTps: bAvg, logo: AMD_ARROW },
+                  ].sort((a, b) => b.avgTps - a.avgTps);
+                  return provs.map((p) => (
+                    <div key={p.name} className="p-4 rounded-none bg-surface border border-border">
+                      <div className="flex items-center gap-2 mb-3">
+                        <img src={p.logo} alt="" className="w-4 h-4 shrink-0 theme-logo" />
+                        <p className="font-heading font-semibold text-sm text-primary truncate">{p.name}</p>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <p className="text-xs text-foreground/50 uppercase tracking-wider">Avg TPS</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 h-2 rounded-none bg-muted overflow-hidden">
+                              <div className="h-full bg-primary rounded-none transition-all duration-700" style={{ width: `${(p.avgTps / max) * 100}%` }} />
+                            </div>
+                            <span className="font-heading font-semibold text-sm text-foreground shrink-0">{formatTps(p.avgTps)} tok/s</span>
                           </div>
-                          <span className="font-heading font-semibold text-sm text-foreground shrink-0">
-                            {formatTps(s.avgTps)} tok/s
-                          </span>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  ));
+                })()}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {speedEntries.sort((a, b) => b.avgTps - a.avgTps).map((s, i, arr) => {
+                  const maxTps = arr[0]?.avgTps || 1;
+                  const barPct = (s.avgTps / maxTps) * 100;
+                  return (
+                    <div key={s.model.id} className="p-4 rounded-none bg-surface border border-border">
+                      <div className="flex items-center gap-2 mb-3">
+                        {getModelLogoUrl(s.model) && (
+                          <img src={getModelLogoUrl(s.model)!} alt="" className="w-4 h-4 shrink-0 theme-logo" />
+                        )}
+                        <p className="font-heading font-semibold text-sm text-primary truncate">{s.model.name}</p>
+                      </div>
+                      <div className="space-y-2 text-sm">
+                        <div>
+                          <p className="text-xs text-foreground/50 uppercase tracking-wider">Avg TPS</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div className="flex-1 h-2 rounded-none bg-muted overflow-hidden">
+                              <div className="h-full bg-primary rounded-none transition-all duration-700" style={{ width: `${barPct}%` }} />
+                            </div>
+                            <span className="font-heading font-semibold text-sm text-foreground shrink-0">{formatTps(s.avgTps)} tok/s</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </Card>
         </div>
 
@@ -408,6 +525,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
               {rounds.map((round, ri) => {
                 const isAWin = round.vote === 'a';
                 const isExpanded = expandedRounds.has(round.roundNumber);
+                const isCorrect = isSpeed ? round.correctGuess : undefined;
                 return (
                   <div key={round.roundNumber}>
                     {ri > 0 && <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-0" />}
@@ -418,53 +536,87 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                           <span className="font-heading text-sm font-semibold text-foreground">
                             Round {round.roundNumber}
                           </span>
-                          <Badge variant={isAWin ? 'success' : 'info'}>
-                            {isAWin ? 'A won' : 'B won'}
-                            {round.decidedViaUnsure && ' (unsure)'}
-                          </Badge>
+                          {isSpeed ? (
+                            <Badge variant={isCorrect ? 'success' : 'error'}>
+                              {isCorrect ? 'Correct' : 'Wrong'}
+                            </Badge>
+                          ) : (
+                            <Badge variant={isAWin ? 'success' : 'info'}>
+                              {isAWin ? 'A won' : 'B won'}
+                              {round.decidedViaUnsure && ' (unsure)'}
+                            </Badge>
+                          )}
                         </div>
-                        <span className="text-xs text-foreground/40 font-heading flex items-center gap-1">
-                          <Zap size={12} />
-                          <span className="text-foreground">{formatTps(Math.max(round.tpsA, round.tpsB))} tok/s</span>
-                        </span>
+                        {!isSpeed && (
+                          <span className="text-xs text-foreground/40 font-heading flex items-center gap-1">
+                            <Zap size={12} />
+                            <span className="text-foreground">{formatTps(Math.max(round.tpsA, round.tpsB))} tok/s</span>
+                          </span>
+                        )}
                       </div>
 
                       {/* Models A & B */}
                       <div className="grid grid-cols-2 gap-4 text-xs mb-2">
-                        <div className={`p-2 rounded-none ${isAWin ? 'bg-primary/5 border-l-2 border-primary' : ''}`}>
+                        <div className={`p-2 rounded-none ${isSpeed ? (round.timeMsA < round.timeMsB ? 'bg-amber-500/5 border-l-2 border-amber-500' : '') : (isAWin ? 'bg-primary/5 border-l-2 border-primary' : '')}`}>
                           <div className="flex items-center gap-1.5 mb-1">
-                            {getModelLogoUrl(round.modelBehindA) && (
+                            {isSpeed ? (
+                              <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg" alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
+                            ) : getModelLogoUrl(round.modelBehindA) && (
                               <img src={getModelLogoUrl(round.modelBehindA)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             )}
                             <span className="font-heading font-medium text-foreground truncate">
-                              {round.modelBehindA.name}
+                              {isSpeed ? `Fireworks` : round.modelBehindA.name}
                             </span>
-                            {isAWin && <Trophy size={10} className="text-primary shrink-0" />}
+                            {isSpeed ? (
+                              round.timeMsA < round.timeMsB && <Zap size={10} className="text-amber-400 shrink-0" />
+                            ) : (isAWin && <Trophy size={10} className="text-primary shrink-0" />)}
                           </div>
                           <p className="text-foreground/50">
-                            {round.tokensA.output.toLocaleString()} out · {formatTps(round.tpsA)} tok/s
+                            {isSpeed ? (
+                              <>{formatTps(round.tpsA)} tok/s · {(round.timeMsA / 1000).toFixed(2)}s</>
+                            ) : (
+                              <>{round.tokensA.output.toLocaleString()} out · {formatTps(round.tpsA)} tok/s</>
+                            )}
                           </p>
                         </div>
-                        <div className={`p-2 rounded-none ${!isAWin ? 'bg-primary/5 border-l-2 border-primary' : ''}`}>
+                        <div className={`p-2 rounded-none ${isSpeed ? (round.timeMsB < round.timeMsA ? 'bg-amber-500/5 border-l-2 border-amber-500' : '') : (!isAWin ? 'bg-primary/5 border-l-2 border-primary' : '')}`}>
                           <div className="flex items-center gap-1.5 mb-1">
-                            {getModelLogoUrl(round.modelBehindB) && (
+                            {isSpeed ? (
+                              <img src={AMD_ARROW} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
+                            ) : getModelLogoUrl(round.modelBehindB) && (
                               <img src={getModelLogoUrl(round.modelBehindB)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             )}
                             <span className="font-heading font-medium text-foreground truncate">
-                              {round.modelBehindB.name}
+                              {isSpeed ? `AMD` : round.modelBehindB.name}
                             </span>
-                            {!isAWin && <Trophy size={10} className="text-primary shrink-0" />}
+                            {isSpeed ? (
+                              round.timeMsB < round.timeMsA && <Zap size={10} className="text-amber-400 shrink-0" />
+                            ) : (!isAWin && <Trophy size={10} className="text-primary shrink-0" />)}
                           </div>
                           <p className="text-foreground/50">
-                            {round.tokensB.output.toLocaleString()} out · {formatTps(round.tpsB)} tok/s
+                            {isSpeed ? (
+                              <>{formatTps(round.tpsB)} tok/s · {(round.timeMsB / 1000).toFixed(2)}s</>
+                            ) : (
+                              <>{round.tokensB.output.toLocaleString()} out · {formatTps(round.tpsB)} tok/s</>
+                            )}
                           </p>
                         </div>
                       </div>
 
+                      {/* Speed guess info */}
+                      {isSpeed && (
+                        <p className="text-xs text-foreground/50 mb-2">
+                          You guessed <span className="font-semibold">{round.userGuess === 'a' ? 'Fireworks' : 'AMD'}</span> —{' '}
+                          <span className={isCorrect ? 'text-emerald-400' : 'text-destructive'}>
+                            {isCorrect ? 'correct!' : `actually ${round.timeMsA < round.timeMsB ? 'Fireworks' : 'AMD'} was faster`}
+                          </span>
+                        </p>
+                      )}
+
                       {/* Prompt — click to expand */}
                       <button
                         onClick={() => toggleRound(round.roundNumber)}
-                        className="w-full text-left text-sm text-foreground/60 line-clamp-2 hover:text-foreground/80 transition-colors cursor-pointer group"
+                        className="w-full text-left text-sm text-foreground/60 line-clamp-2 hover:text-foreground transition-colors cursor-pointer group outline-none focus-visible:outline-none rounded-none px-1 -mx-1 hover:bg-muted"
                       >
                         <span className="flex items-center gap-1">
                           <span className="truncate">{round.prompt}</span>
@@ -481,10 +633,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                         <div className="mt-3 space-y-2 border-t border-border pt-3">
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              {getModelLogoUrl(round.modelBehindA) && (
-                                <img src={getModelLogoUrl(round.modelBehindA)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
-                              )}
-                              <span className="font-heading text-xs font-semibold text-foreground/70">A — {round.modelBehindA.name}</span>
+                              <span className="font-heading text-xs font-semibold text-foreground/70">A — {isSpeed ? 'Fireworks' : round.modelBehindA.name}</span>
                             </div>
                             <p className="text-xs text-foreground/60 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-none border border-border">
                               {round.responseA || <span className="italic text-foreground/30">No response</span>}
@@ -492,10 +641,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              {getModelLogoUrl(round.modelBehindB) && (
-                                <img src={getModelLogoUrl(round.modelBehindB)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
-                              )}
-                              <span className="font-heading text-xs font-semibold text-foreground/70">B — {round.modelBehindB.name}</span>
+                              <span className="font-heading text-xs font-semibold text-foreground/70">B — {isSpeed ? 'AMD' : round.modelBehindB.name}</span>
                             </div>
                             <p className="text-xs text-foreground/60 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-none border border-border">
                               {round.responseB || <span className="italic text-foreground/30">No response</span>}
