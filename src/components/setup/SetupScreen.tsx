@@ -289,38 +289,101 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   const [introStage, setIntroStage] = useState<'intro' | 'setup'>(() => (window as any).__introShown ? 'setup' : 'intro');
 
   const ps2Ref = useRef<HTMLCanvasElement>(null);
+  const partsRef = useRef<Particle[]>([]);
+  const imgsRef = useRef<HTMLImageElement[]>([]);
+  const imgsReady = useRef(false);
 
+  interface Particle {
+    x: number; y: number; vx: number; vy: number; rot: number; rv: number; imgIdx: number;
+  }
+
+  const radius = 20;
+  const MAX_PARTS = 50;
+
+  // — image loader (one-shot) —
   useEffect(() => {
-    const canvas = ps2Ref.current;
-    if (!canvas || step !== 'models') return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
+    if (step !== 'models' || imgsReady.current) return;
     const isDark = document.documentElement.classList.contains('dark');
-    const col = isDark ? '383c4a' : 'd0d0d0';
+    const c = isDark ? '383c4a' : 'd0d0d0';
+    const oai = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 260" fill="#' + c + '"><path d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.545-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.051 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z"/></svg>');
+    const urls = [oai, ...['googlegemini','anthropic','mistralai','deepseek','meta','qwen'].map(s => `https://cdn.simpleicons.org/${s}/${c}`)];
+    let ld = 0;
+    for (let i = 0; i < urls.length; i++) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { if (++ld >= urls.length) imgsReady.current = true; };
+      img.onerror = () => { if (++ld >= urls.length) imgsReady.current = true; };
+      img.src = urls[i];
+      imgsRef.current[i] = img;
+    }
+  }, [step]);
 
-    // exact same logo set as model rain
-    const oai = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 260" fill="#' + col + '"><path d="M239.184 106.203a64.716 64.716 0 0 0-5.576-53.103C219.452 28.459 191 15.784 163.213 21.74A65.586 65.586 0 0 0 52.096 45.22a64.716 64.716 0 0 0-43.23 31.36c-14.31 24.602-11.061 55.634 8.033 76.74a64.665 64.665 0 0 0 5.525 53.102c14.174 24.65 42.644 37.324 70.446 31.36a64.72 64.72 0 0 0 48.754 21.744c28.481.025 53.714-18.361 62.414-45.481a64.767 64.767 0 0 0 43.229-31.36c14.137-24.558 10.875-55.423-8.083-76.483Zm-97.56 136.338a48.397 48.397 0 0 1-31.105-11.255l1.535-.87 51.67-29.825a8.595 8.595 0 0 0 4.247-7.367v-72.85l21.845 12.636c.218.111.37.32.409.563v60.367c-.056 26.818-21.783 48.545-48.601 48.601Zm-104.466-44.61a48.345 48.345 0 0 1-5.781-32.589l1.534.921 51.722 29.826a8.339 8.339 0 0 0 8.441 0l63.181-36.425v25.221a.87.87 0 0 1-.358.665l-52.335 30.184c-23.257 13.398-52.97 5.431-66.404-17.803ZM23.549 85.38a48.499 48.499 0 0 1 25.58-21.333v61.39a8.288 8.288 0 0 0 4.195 7.316l62.874 36.272-21.845 12.636a.819.819 0 0 1-.767 0L41.353 151.53c-23.211-13.454-31.171-43.144-17.804-66.405v.256Zm179.466 41.695-63.08-36.63L161.73 77.86a.819.819 0 0 1 .768 0l52.233 30.184a48.6 48.6 0 0 1-7.316 87.635v-61.391a8.544 8.544 0 0 0-4.4-7.213Zm21.742-32.69-1.535-.922-51.619-30.081a8.39 8.39 0 0 0-8.492 0L99.98 99.808V74.587a.716.716 0 0 1 .307-.665l52.233-30.133a48.652 48.652 0 0 1 72.236 50.391v.205ZM88.061 139.097l-21.845-12.585a.87.87 0 0 1-.41-.614V65.685a48.652 48.652 0 0 1 79.757-37.346l-1.535.87-51.67 29.825a8.595 8.595 0 0 0-4.246 7.367l-.051 72.697Zm11.868-25.58 28.138-16.217 28.188 16.218v32.434l-28.086 16.218-28.188-16.218-.052-32.434Z"/></svg>');
-    const simpleIcons = ['googlegemini', 'anthropic', 'mistralai', 'deepseek', 'meta', 'qwen'];
-    const rainUrls = [oai, ...simpleIcons.map(s => `https://cdn.simpleicons.org/${s}/${col}`)];
-
+  // — particle syncer (reacts to selection changes) —
+  useEffect(() => {
+    if (step !== 'models' || !imgsReady.current) return;
     const enabled = models.filter(m => enabledIds.has(m.id));
-    if (enabled.length === 0) return;
+    if (enabled.length === 0) { partsRef.current = []; return; }
 
-    const rainLogoIdx: number[] = [];
+    // model → logo index (same mapping as rain)
+    const logos: number[] = [];
     for (const m of enabled) {
-      const id = m.id.toLowerCase() + m.name.toLowerCase();
-      if (/gpt|o\d/.test(id)) rainLogoIdx.push(0);
-      else if (/gemini/.test(id)) rainLogoIdx.push(1);
-      else if (/claude|sonnet|haiku|opus|fable/.test(id)) rainLogoIdx.push(2);
-      else if (/mistral/.test(id)) rainLogoIdx.push(3);
-      else if (/deepseek/.test(id)) rainLogoIdx.push(4);
-      else if (/llama|meta/.test(id)) rainLogoIdx.push(5);
-      else if (/qwen/.test(id)) rainLogoIdx.push(6);
-      else rainLogoIdx.push(Math.floor(Math.random() * 7)); // fireworks → random
+      const t = m.id.toLowerCase() + m.name.toLowerCase();
+      if (/gpt|o\d/.test(t)) logos.push(0);
+      else if (/gemini/.test(t)) logos.push(1);
+      else if (/claude|sonnet|haiku|opus|fable/.test(t)) logos.push(2);
+      else if (/mistral/.test(t)) logos.push(3);
+      else if (/deepseek/.test(t)) logos.push(4);
+      else if (/llama|meta/.test(t)) logos.push(5);
+      else if (/qwen/.test(t)) logos.push(6);
+      else logos.push(Math.floor(Math.random() * 7));
     }
 
-    if (rainLogoIdx.length === 0) return;
+    const target = Math.min(MAX_PARTS, Math.max(8, enabled.length * 2));
+    const parts = partsRef.current;
+    const cw = window.innerWidth;
+    const ch = window.innerHeight;
+
+    if (parts.length === 0) {
+      // fresh burst on entry
+      for (let i = 0; i < target; i++) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const spd = 7 + Math.random() * 8;
+        parts.push({
+          x: side === -1 ? -radius : cw + radius,
+          y: Math.random() * ch,
+          vx: side * spd,
+          vy: (-2 + Math.random() * 4) * 3,
+          rot: Math.random() * Math.PI * 2,
+          rv: (Math.random() - 0.5) * 0.15,
+          imgIdx: logos[Math.floor(Math.random() * logos.length)],
+        });
+      }
+    } else {
+      // incremental: add / trim
+      while (parts.length < target) {
+        const side = Math.random() < 0.5 ? -1 : 1;
+        const spd = 7 + Math.random() * 8;
+        parts.push({
+          x: side === -1 ? -radius : cw + radius,
+          y: Math.random() * ch,
+          vx: side * spd,
+          vy: (-2 + Math.random() * 4) * 3,
+          rot: Math.random() * Math.PI * 2,
+          rv: (Math.random() - 0.5) * 0.15,
+          imgIdx: logos[Math.floor(Math.random() * logos.length)],
+        });
+      }
+      parts.length = Math.min(parts.length, target);
+    }
+  }, [step, enabledIds, models]);
+
+  // — animation loop (persistent) —
+  useEffect(() => {
+    if (step !== 'models') { partsRef.current = []; return; }
+    const canvas = ps2Ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
     const resize = () => {
       canvas.width = window.innerWidth;
@@ -329,93 +392,50 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     resize();
     window.addEventListener('resize', resize);
 
-    const imgs: HTMLImageElement[] = [];
-    let loaded = 0;
-
-    // deduplicate: load each unique URL once
-    const seen = new Set<string>();
-    for (const idx of rainLogoIdx) {
-      const url = rainUrls[idx % rainUrls.length];
-      if (seen.has(url)) continue;
-      seen.add(url);
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => loaded++;
-      img.onerror = () => loaded++;
-      img.src = url;
-      imgs.push(img);
-    }
-
-    interface P {
-      x: number; y: number; vx: number; vy: number; ri: number;
-    }
-
-    const cnt = Math.min(50, Math.max(8, enabled.length * 2));
-    const radius = 20; // same as rain
-    const parts: P[] = [];
-
-    for (let i = 0; i < cnt; i++) {
-      const side = Math.random() < 0.5 ? -1 : 1;
-      const spd = 7 + Math.random() * 8;
-      parts.push({
-        x: side === -1 ? -radius : canvas.width + radius,
-        y: Math.random() * canvas.height,
-        vx: side * spd,
-        vy: (-2 + Math.random() * 4) * 3,
-        ri: Math.floor(Math.random() * rainLogoIdx.length),
-      });
-    }
-
     let aid: number;
-
     const loop = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const cw = canvas.width;
-      const ch = canvas.height;
-
+      const cw = canvas.width, ch = canvas.height;
       const listEl = canvas.parentElement?.querySelector('.max-w-2xl');
       const obs = listEl ? listEl.getBoundingClientRect() : null;
 
-      for (const p of parts) {
-        p.x += p.vx;
-        p.y += p.vy;
+      for (const p of partsRef.current) {
+        p.x += p.vx; p.y += p.vy; p.rot += p.rv;
 
-        // edge bounce — same as rain wall bounce
-        if (p.x < radius) { p.x = radius; p.vx = -p.vx * 0.5; }
-        else if (p.x > cw - radius) { p.x = cw - radius; p.vx = -p.vx * 0.5; }
-        if (p.y < radius && p.vy < 0) { p.y = radius; p.vy = -p.vy * 0.5; }
-        if (p.y > ch - radius) { p.y = ch - radius; p.vy = -p.vy * 0.6; }
+        if (p.x < radius) { p.x = radius; p.vx = -p.vx * 0.85; }
+        else if (p.x > cw - radius) { p.x = cw - radius; p.vx = -p.vx * 0.85; }
+        if (p.y < radius && p.vy < 0) { p.y = radius; p.vy = -p.vy * 0.85; }
+        if (p.y > ch - radius) { p.y = ch - radius; p.vy = -p.vy * 0.85; }
 
-        // obstacle bounce (center content)
-        if (obs) {
-          if (p.x + radius > obs.left && p.x - radius < obs.right && p.y + radius > obs.top && p.y - radius < obs.bottom) {
-            const dl = p.x - obs.left;
-            const dr = obs.right - p.x;
-            if (dl < dr) { p.x = obs.left - radius; p.vx = -Math.abs(p.vx); }
-            else { p.x = obs.right + radius; p.vx = Math.abs(p.vx); }
-          }
+        if (obs && p.x + radius > obs.left && p.x - radius < obs.right && p.y + radius > obs.top && p.y - radius < obs.bottom) {
+          const dl = p.x - obs.left, dr = obs.right - p.x;
+          if (dl < dr) { p.x = obs.left - radius; p.vx = -p.vx * 0.6; }
+          else { p.x = obs.right + radius; p.vx = -p.vx * 0.6; }
+          p.vy *= 0.6;
         }
 
-        // draw same as rain: no alpha, radius=20
-        const imgIdx = rainLogoIdx[p.ri % rainLogoIdx.length] % imgs.length;
-        ctx.drawImage(imgs[imgIdx], p.x - radius, p.y - radius, radius * 2, radius * 2);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.drawImage(imgsRef.current[p.imgIdx], -radius, -radius, radius * 2, radius * 2);
+        ctx.restore();
       }
 
       aid = requestAnimationFrame(loop);
     };
 
     const wait = () => {
-      if (loaded >= imgs.length) loop();
-      else setTimeout(wait, 100);
+      if (imgsReady.current && partsRef.current.length > 0) loop();
+      else { aid = requestAnimationFrame(wait); }
     };
-    wait();
+    aid = requestAnimationFrame(wait);
 
     return () => {
       cancelAnimationFrame(aid);
       window.removeEventListener('resize', resize);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     };
-  }, [step, models, enabledIds]);
+  }, [step]);
 
   useEffect(() => {
     if ((window as any).__introShown) { setIntroStage('setup'); return; }
