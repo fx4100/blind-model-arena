@@ -455,15 +455,19 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
             {isSpeed ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {(() => {
-                  const aTot = rounds.reduce((acc, r) => ({ tps: acc.tps + r.tpsA, cnt: acc.cnt + 1 }), { tps: 0, cnt: 0 });
-                  const bTot = rounds.reduce((acc, r) => ({ tps: acc.tps + r.tpsB, cnt: acc.cnt + 1 }), { tps: 0, cnt: 0 });
-                  const aAvg = aTot.cnt > 0 ? aTot.tps / aTot.cnt : 0;
-                  const bAvg = bTot.cnt > 0 ? bTot.tps / bTot.cnt : 0;
-                  const max = Math.max(aAvg, bAvg) || 1;
-                  const provs = [
-                    { name: 'Fireworks', avgTps: aAvg, logo: 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' },
-                    { name: 'AMD', avgTps: bAvg, logo: AMD_ARROW },
-                  ].sort((a, b) => b.avgTps - a.avgTps);
+                  const provMap = new Map<string, { tps: number; cnt: number; logo: string }>();
+                  for (const r of rounds) {
+                    const a = provMap.get(r.providerLabelA!) ?? { tps: 0, cnt: 0, logo: r.providerLabelA === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW };
+                    a.tps += r.tpsA; a.cnt++;
+                    provMap.set(r.providerLabelA!, a);
+                    const b = provMap.get(r.providerLabelB!) ?? { tps: 0, cnt: 0, logo: r.providerLabelB === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW };
+                    b.tps += r.tpsB; b.cnt++;
+                    provMap.set(r.providerLabelB!, b);
+                  }
+                  const provs = [...provMap.entries()].map(([name, d]) => ({
+                    name, avgTps: d.cnt > 0 ? d.tps / d.cnt : 0, logo: d.logo,
+                  })).sort((a, b) => b.avgTps - a.avgTps);
+                  const max = Math.max(...provs.map(p => p.avgTps), 1);
                   return provs.map((p) => (
                     <div key={p.name} className="p-4 rounded-none bg-surface border border-border">
                       <div className="flex items-center gap-2 mb-3">
@@ -560,12 +564,12 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                         <div className={`p-2 rounded-none ${isSpeed ? (round.timeMsA < round.timeMsB ? 'bg-amber-500/5 border-l-2 border-amber-500' : '') : (isAWin ? 'bg-primary/5 border-l-2 border-primary' : '')}`}>
                           <div className="flex items-center gap-1.5 mb-1">
                             {isSpeed ? (
-                              <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg" alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
+                              <img src={round.providerLabelA === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             ) : getModelLogoUrl(round.modelBehindA) && (
                               <img src={getModelLogoUrl(round.modelBehindA)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             )}
                             <span className="font-heading font-medium text-foreground truncate">
-                              {isSpeed ? `Fireworks` : round.modelBehindA.name}
+                              {isSpeed ? round.providerLabelA : round.modelBehindA.name}
                             </span>
                             {isSpeed ? (
                               round.timeMsA < round.timeMsB && <Zap size={10} className="text-amber-400 shrink-0" />
@@ -582,12 +586,12 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                         <div className={`p-2 rounded-none ${isSpeed ? (round.timeMsB < round.timeMsA ? 'bg-amber-500/5 border-l-2 border-amber-500' : '') : (!isAWin ? 'bg-primary/5 border-l-2 border-primary' : '')}`}>
                           <div className="flex items-center gap-1.5 mb-1">
                             {isSpeed ? (
-                              <img src={AMD_ARROW} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
+                              <img src={round.providerLabelB === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             ) : getModelLogoUrl(round.modelBehindB) && (
                               <img src={getModelLogoUrl(round.modelBehindB)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             )}
                             <span className="font-heading font-medium text-foreground truncate">
-                              {isSpeed ? `AMD` : round.modelBehindB.name}
+                              {isSpeed ? round.providerLabelB : round.modelBehindB.name}
                             </span>
                             {isSpeed ? (
                               round.timeMsB < round.timeMsA && <Zap size={10} className="text-amber-400 shrink-0" />
@@ -606,9 +610,9 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                       {/* Speed guess info */}
                       {isSpeed && (
                         <p className="text-xs text-foreground/50 mb-2">
-                          You guessed <span className="font-semibold">{round.userGuess === 'a' ? 'Fireworks' : 'AMD'}</span> —{' '}
+                          You guessed <span className="font-semibold">{round.userGuess === 'a' ? round.providerLabelA : round.providerLabelB}</span> —{' '}
                           <span className={isCorrect ? 'text-emerald-400' : 'text-destructive'}>
-                            {isCorrect ? 'correct!' : `actually ${round.timeMsA < round.timeMsB ? 'Fireworks' : 'AMD'} was faster`}
+                            {isCorrect ? 'correct!' : `actually ${round.timeMsA < round.timeMsB ? round.providerLabelA : round.providerLabelB} was faster`}
                           </span>
                         </p>
                       )}
@@ -633,7 +637,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                         <div className="mt-3 space-y-2 border-t border-border pt-3">
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              <span className="font-heading text-xs font-semibold text-foreground/70">A — {isSpeed ? 'Fireworks' : round.modelBehindA.name}</span>
+                              <span className="font-heading text-xs font-semibold text-foreground/70">A — {isSpeed ? round.providerLabelA : round.modelBehindA.name}</span>
                             </div>
                             <p className="text-xs text-foreground/60 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-none border border-border">
                               {round.responseA || <span className="italic text-foreground/30">No response</span>}
@@ -641,7 +645,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                           </div>
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              <span className="font-heading text-xs font-semibold text-foreground/70">B — {isSpeed ? 'AMD' : round.modelBehindB.name}</span>
+                              <span className="font-heading text-xs font-semibold text-foreground/70">B — {isSpeed ? round.providerLabelB : round.modelBehindB.name}</span>
                             </div>
                             <p className="text-xs text-foreground/60 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-none border border-border">
                               {round.responseB || <span className="italic text-foreground/30">No response</span>}

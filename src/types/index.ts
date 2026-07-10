@@ -72,6 +72,10 @@ export interface RoundResult {
   userGuess?: 'a' | 'b';
   /** Speed mode: was the guess correct */
   correctGuess?: boolean;
+  /** Speed mode: provider name behind A (e.g. 'Fireworks' / 'AMD') */
+  providerLabelA?: string;
+  /** Speed mode: provider name behind B (e.g. 'Fireworks' / 'AMD') */
+  providerLabelB?: string;
 }
 
 export interface MatchState {

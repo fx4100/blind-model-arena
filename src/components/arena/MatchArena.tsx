@@ -179,6 +179,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
   // Speed mode: track which side was actually faster this round
   const actualFasterRef = useRef<'a' | 'b'>('a');
+  // Speed mode: whether providers are swapped (AMD on A) this round
+  const swapRef = useRef(false);
 
   // Auto-show token breakdown at round_end for demo mode (standard only)
   useEffect(() => {
@@ -278,7 +280,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     let timeA = 0;
     let timeB = 0;
 
-    // ---- Speed mode: real Fireworks vs AMD GPU ----
+    // ---- Speed mode: real Fireworks vs AMD GPU (randomized A/B) ----
     if (isSpeed) {
       const messages = buildMessages();
       const fwKey = import.meta.env.VITE_FIREWORKS_API_KEY;
@@ -286,12 +288,17 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       const amdUrl = import.meta.env.VITE_AMD_ENDPOINT;
       const amdKey = import.meta.env.VITE_AMD_API_KEY;
       const amdModel = import.meta.env.VITE_AMD_MODEL_ID;
+      const swap = Math.random() < 0.5;
+      swapRef.current = swap;
 
       const [resultA, resultB] = await Promise.allSettled([
         (async () => {
           let text = '';
           for await (const chunk of streamDirect(
-            'https://api.fireworks.ai/inference/v1', fwKey, fwModel, messages,
+            swap ? amdUrl : 'https://api.fireworks.ai/inference/v1',
+            swap ? amdKey : fwKey,
+            swap ? amdModel : fwModel,
+            messages,
           )) {
             text += chunk.content;
             throttledSetA(text);
@@ -302,7 +309,10 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
         (async () => {
           let text = '';
           for await (const chunk of streamDirect(
-            amdUrl, amdKey, amdModel, messages,
+            swap ? 'https://api.fireworks.ai/inference/v1' : amdUrl,
+            swap ? fwKey : amdKey,
+            swap ? fwModel : amdModel,
+            messages,
           )) {
             text += chunk.content;
             throttledSetB(text);
@@ -324,6 +334,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       setResponseB(textB);
 
       actualFasterRef.current = timeA < timeB ? 'a' : 'b';
+
+      const provLabel = (p: boolean) => p ? 'AMD' : 'Fireworks';
 
       const tokensA = countTokens(textA);
       const tokensB = countTokens(textB);
@@ -497,6 +509,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           vote: finalVote,
           userGuess: vote,
           correctGuess: correct,
+          providerLabelA: swapRef.current ? 'AMD' : 'Fireworks',
+          providerLabelB: swapRef.current ? 'Fireworks' : 'AMD',
         };
 
         const newRounds = [...rounds, round];

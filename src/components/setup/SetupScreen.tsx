@@ -526,7 +526,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         mode: 'demo',
         gameMode: 'speed',
         allowedModels: [m[0]],
-        systemPrompt: '',
+        systemPrompt: 'Dont respond more than 3 paragraphs, be concise and short.',
         totalRounds: rounds,
       });
     } catch {
