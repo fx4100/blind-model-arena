@@ -33,6 +33,7 @@ const FB = [
   { col: '#f472b6', lbl: 'Q' },
 ];
 
+// cap logos to screen area so low-end machins dont chok
 function getRainLimit(w: number, h: number): number {
   return Math.max(10, Math.min(150, Math.floor((w * h) / 30000)));
 }
