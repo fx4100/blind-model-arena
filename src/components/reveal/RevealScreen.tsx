@@ -99,6 +99,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
 
   const [expandedRounds, setExpandedRounds] = useState<Set<number>>(new Set());
   const [bgReady, setBgReady] = useState(false);
+  const [meteorKey, setMeteorKey] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setBgReady(true), 200);
@@ -143,6 +144,17 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
         .anim-sld-4 { animation-delay: 0.55s; }
         .anim-sld-5 { animation-delay: 0.7s; }
         .anim-glow { animation: glowPulse 2.5s ease-in-out infinite; }
+        @keyframes metFall {
+          0%   { transform: translate(120vw, -15vh) rotate(25deg); opacity: 0; }
+          6%   { opacity: 0.9; }
+          100% { transform: translate(-15vw, 108vh) rotate(25deg); opacity: 0; }
+        }
+        .met-logo {
+          position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none;
+          width: 40px; height: 40px;
+          animation: metFall 5s cubic-bezier(0.4,0,0.2,1) forwards;
+          filter: drop-shadow(0 0 18px oklch(0.63 0.19 255 / 0.5));
+        }
       `}</style>
 
       {/* Background model logos */}
@@ -167,6 +179,17 @@ export function RevealScreen({ rounds, scores, onPlayAgain }: RevealScreenProps)
             />
           </div>
         </div>
+      )}
+
+      {/* Meteor — winner logo falls diagonally */}
+      {topModel && getModelLogoUrl(topModel) && (
+        <img
+          key={meteorKey}
+          src={getModelLogoUrl(topModel)!}
+          alt=""
+          className="met-logo theme-logo"
+          onAnimationEnd={() => setMeteorKey(k => k + 1)}
+        />
       )}
 
       <div className="max-w-3xl mx-auto w-full relative z-10">

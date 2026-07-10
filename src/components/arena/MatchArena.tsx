@@ -15,6 +15,24 @@ import type {
   LlmProvider,
 } from '../../types';
 
+const PS2_LOGOS: [RegExp, string][] = [
+  [/claude|sonnet|haiku|opus|fable/i, 'https://cdn.simpleicons.org/anthropic/383c4a'],
+  [/mistral/i, 'https://cdn.simpleicons.org/mistralai/383c4a'],
+  [/gemini/i, 'https://cdn.simpleicons.org/googlegemini/383c4a'],
+  [/gpt|o\d/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg'],
+  [/llama/i, 'https://cdn.simpleicons.org/meta/383c4a'],
+  [/deepseek/i, 'https://cdn.simpleicons.org/deepseek/383c4a'],
+  [/qwen/i, 'https://cdn.simpleicons.org/qwen/383c4a'],
+  [/fireworks/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg'],
+];
+
+function ps2LogoUrl(model: ModelInfo): string | null {
+  for (const [re, url] of PS2_LOGOS) {
+    if (re.test(model.id) || re.test(model.name)) return url;
+  }
+  return null;
+}
+
 interface MatchArenaProps {
   config: MatchConfig;
   onReveal: (state: MatchState, rounds: RoundResult[]) => void;
@@ -113,6 +131,81 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
   // Persistence: match ID saved on first round, reused for subsequent rounds
   const matchIdRef = useRef<string | null>(null);
+
+  const ps2Ref = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = ps2Ref.current;
+    if (!canvas || config.allowedModels.length === 0) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const models = config.allowedModels;
+    const imgs: HTMLImageElement[] = [];
+    let loaded = 0;
+    const total = models.length;
+
+    for (const m of models) {
+      const url = ps2LogoUrl(m);
+      if (!url) continue;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => { loaded++; };
+      img.onerror = () => { loaded++; };
+      img.src = url;
+      imgs.push(img);
+    }
+
+    if (imgs.length === 0) return;
+
+    const cx = () => canvas.width / 2;
+    const cy = () => canvas.height * 0.55;
+    const r = () => Math.min(canvas.width, canvas.height) * 0.28;
+    const spd = 0.006;
+    let ang = 0;
+    let aid: number;
+
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ang += spd;
+
+      for (let i = 0; i < imgs.length; i++) {
+        const a = ang + (i / imgs.length) * Math.PI * 2;
+        const x = cx() + Math.cos(a) * r();
+        const y = cy() + Math.sin(a) * r() * 0.4;
+        const sz = 28;
+        const dep = (Math.sin(a) + 1) / 2;
+        const op = 0.02 + dep * 0.05;
+
+        ctx.save();
+        ctx.globalAlpha = op;
+        ctx.translate(x, y);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.drawImage(imgs[i], -sz / 2, -sz / 2, sz, sz);
+        ctx.restore();
+      }
+
+      aid = requestAnimationFrame(loop);
+    };
+
+    const wait = () => {
+      if (loaded >= imgs.length) loop();
+      else setTimeout(wait, 100);
+    };
+    wait();
+
+    return () => {
+      cancelAnimationFrame(aid);
+      window.removeEventListener('resize', resize);
+    };
+  }, [config.allowedModels]);
 
   // Auto-show token breakdown at round_end for demo mode
   useEffect(() => {
@@ -458,6 +551,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const isBothDone = !isStreamingA && !isStreamingB && phase === 'voting';
 
   return (
+    <>
+    <canvas ref={ps2Ref} className="fixed inset-0 pointer-events-none z-0" />
     <div className="h-screen overflow-hidden flex flex-col px-4 py-6">
       <style>{`
         @keyframes sldIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -706,5 +801,6 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
         </div>
       )}
     </div>
+    </>
   );
 }

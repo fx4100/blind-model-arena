@@ -33,9 +33,9 @@ const FB = [
   { col: '#f472b6', lbl: 'Q' },
 ];
 
-// cap logos to screen area so low-end machins dont chok
+// cap at ~2 rows of logos so screen lookz full but no overlap lag
 function getRainLimit(w: number, h: number): number {
-  return Math.max(10, Math.min(150, Math.floor((w * h) / 30000)));
+  return Math.max(15, Math.min(100, Math.floor(w / 40) * 2));
 }
 
 export function LogoRainCanvas() {
