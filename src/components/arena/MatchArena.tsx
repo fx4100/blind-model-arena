@@ -4,7 +4,7 @@ import { encode } from 'gpt-tokenizer';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
-import { demoProvider, speedChat } from '../../providers/demo';
+import { demoProvider } from '../../providers/demo';
 import { fetchLLM, saveMatch, saveRound } from '../../services/api';
 import type {
   MatchConfig,
@@ -30,6 +30,62 @@ function pickAndShuffle(pool: ModelInfo[]): { behindA: ModelInfo; behindB: Model
   return Math.random() < 0.5
     ? { behindA: m1, behindB: m2 }
     : { behindA: m2, behindB: m1 };
+}
+
+/**
+ * Direct streaming call to an OpenAI-compatible chat completions endpoint.
+ * Used by speed mode to hit Fireworks & AMD GPU directly (no proxy).
+ */
+async function* streamDirect(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  messages: { role: string; content: string }[],
+): AsyncGenerator<{ content: string; done: boolean }> {
+  const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ model, messages, stream: true }),
+  });
+
+  if (!res.ok) {
+    let msg = `API returned ${res.status}`;
+    try { const j = await res.json(); msg = j.error?.message ?? JSON.stringify(j); } catch {}
+    throw new Error(msg);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t || !t.startsWith('data: ')) continue;
+      const jsonStr = t.slice(6);
+      if (jsonStr === '[DONE]') { yield { content: '', done: true }; return; }
+      try {
+        const json = JSON.parse(jsonStr);
+        const delta = json.choices?.[0]?.delta?.content || '';
+        if (delta) yield { content: delta, done: false };
+      } catch {}
+    }
+  }
+
+  yield { content: '', done: true };
 }
 
 /** Tokenize text with gpt-tokenizer and return the token count. */
@@ -222,15 +278,21 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     let timeA = 0;
     let timeB = 0;
 
-    // ---- Speed mode (demo): controlled streaming speeds ----
-    if (isSpeed && config.mode === 'demo') {
-      const fastSideA = Math.random() < 0.5;
-      actualFasterRef.current = fastSideA ? 'a' : 'b';
+    // ---- Speed mode: real Fireworks vs AMD GPU ----
+    if (isSpeed) {
+      const messages = buildMessages();
+      const fwKey = import.meta.env.VITE_FIREWORKS_API_KEY;
+      const fwModel = import.meta.env.VITE_FIREWORKS_MODEL_ID;
+      const amdUrl = import.meta.env.VITE_AMD_ENDPOINT;
+      const amdKey = import.meta.env.VITE_AMD_API_KEY;
+      const amdModel = import.meta.env.VITE_AMD_MODEL_ID;
 
       const [resultA, resultB] = await Promise.allSettled([
         (async () => {
           let text = '';
-          for await (const chunk of speedChat(fastSideA)) {
+          for await (const chunk of streamDirect(
+            'https://api.fireworks.ai/inference/v1', fwKey, fwModel, messages,
+          )) {
             text += chunk.content;
             throttledSetA(text);
           }
@@ -239,7 +301,9 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
         })(),
         (async () => {
           let text = '';
-          for await (const chunk of speedChat(!fastSideA)) {
+          for await (const chunk of streamDirect(
+            amdUrl, amdKey, amdModel, messages,
+          )) {
             text += chunk.content;
             throttledSetB(text);
           }
@@ -258,6 +322,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       setResponseA(textA);
       setResponseB(textB);
+
+      actualFasterRef.current = timeA < timeB ? 'a' : 'b';
 
       const tokensA = countTokens(textA);
       const tokensB = countTokens(textB);
