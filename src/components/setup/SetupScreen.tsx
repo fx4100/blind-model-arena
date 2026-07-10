@@ -653,7 +653,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // ========== Render: Mode Selection ==========
   if (step === 'mode') {
     return (
-      <div className="fixed inset-0 flex flex-col items-center pt-16 sm:pt-20 px-4 bg-background">
+      <div className="fixed inset-0 flex flex-col items-center pt-24 sm:pt-20 px-4 bg-background">
         <LogoRainCanvas />
 
         <button
