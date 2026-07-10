@@ -339,7 +339,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         const y = cy() + Math.sin(a) * r() * 0.4;
         const sz = 28;
         const dep = (Math.sin(a) + 1) / 2;
-        const op = 0.02 + dep * 0.05;
+        const op = 0.06 + dep * 0.14;
 
         ctx.save();
         ctx.globalAlpha = op;
@@ -687,7 +687,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         <h2 className="font-heading text-2xl font-bold text-foreground mb-1">Select Models</h2>
         <p className="text-foreground/60 mb-1 text-sm">
           {selectionMode === 'whitelist'
-            ? 'Enable the models you want in the pool. Each round, two will be randomly picked.'
+            ? 'Enable the models you want in the pool. Two of those will be randomly picked.'
             : 'Models you mark as blocked will be excluded. All others are fair game in the arena.'}
         </p>
 

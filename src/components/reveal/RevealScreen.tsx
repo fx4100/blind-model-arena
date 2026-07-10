@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { RefreshCw, Trophy, Zap, ChevronDown, ChevronUp, Crown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
