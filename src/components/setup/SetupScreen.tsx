@@ -294,7 +294,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   const imgsReady = useRef(false);
 
   interface Particle {
-    x: number; y: number; vx: number; vy: number; rot: number; rv: number; imgIdx: number; mid: string;
+    x: number; y: number; vx: number; vy: number; rot: number; rv: number; imgIdx: number; mid: string; op: number;
   }
 
   const radius = 20;
@@ -346,17 +346,21 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     const cw = window.innerWidth;
     const ch = window.innerHeight;
 
-    // Remove particles no longer in the set
+    // Mark particles no longer in the set as dying
     for (let i = parts.length - 1; i >= 0; i--) {
-      if (!ids.has(parts[i].mid)) {
-        parts.splice(i, 1);
+      if (!ids.has(parts[i].mid) && parts[i].op >= 1) {
+        parts[i].op = 0.98;
       }
     }
 
     // Add particles for newly shown models
     for (const m of shown) {
-      if (parts.some(p => p.mid === m.id)) continue;
       if (parts.length >= MAX_PARTS) break;
+      const idx = parts.findIndex(p => p.mid === m.id);
+      if (idx >= 0) {
+        if (parts[idx].op < 1) parts[idx].op = 1; // resurrect dying particle
+        continue;
+      }
       const side = Math.random() < 0.5 ? -1 : 1;
       const spd = 7 + Math.random() * 8;
       parts.push({
@@ -368,6 +372,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         rv: (Math.random() - 0.5) * 0.15,
         imgIdx: logoFor(m),
         mid: m.id,
+        op: 1,
       });
     }
   }, [step, enabledIds, models, selectionMode]);
@@ -441,10 +446,19 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       // draw
       for (const p of pts) {
         ctx.save();
+        ctx.globalAlpha = p.op;
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.drawImage(imgsRef.current[p.imgIdx], -radius, -radius, radius * 2, radius * 2);
         ctx.restore();
+      }
+
+      // fade out dying particles
+      for (let i = pts.length - 1; i >= 0; i--) {
+        if (pts[i].op < 1) {
+          pts[i].op -= 0.025;
+          if (pts[i].op <= 0) pts.splice(i, 1);
+        }
       }
 
       aid = requestAnimationFrame(loop);
