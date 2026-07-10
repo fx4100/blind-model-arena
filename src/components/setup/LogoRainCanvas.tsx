@@ -33,6 +33,10 @@ const FB = [
   { col: '#f472b6', lbl: 'Q' },
 ];
 
+function getRainLimit(w: number, h: number): number {
+  return Math.max(10, Math.min(150, Math.floor((w * h) / 30000)));
+}
+
 export function LogoRainCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logosRef = useRef<LogoItem[]>([]);
@@ -65,9 +69,16 @@ export function LogoRainCanvas() {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      for (const l of logosRef.current) {
+      const maxLogos = getRainLimit(canvas.width, canvas.height);
+      let logos = logosRef.current;
+      for (const l of logos) {
         l.x = Math.max(l.radius, Math.min(canvas.width - l.radius, l.x));
         l.y = Math.max(l.radius, Math.min(canvas.height - l.radius, l.y));
+      }
+      if (logos.length > maxLogos) {
+        logos.sort((a, b) => a.y - b.y);
+        logos.length = maxLogos;
+        logosRef.current = logos;
       }
     };
     resizeCanvas();
@@ -91,31 +102,29 @@ export function LogoRainCanvas() {
       const tMul = 1 + elapsed / 45;
       spawnTimer = setTimeout(() => {
         const cw = canvas!.width;
+        const ch = canvas!.height;
+        const maxLogos = getRainLimit(cw, ch);
         const cnt = Math.min(5, 1 + Math.floor(elapsed / 20));
-        for (let k = 0; k < cnt; k++) {
-          const poke = (idx: number) => {
-            const pidx = Math.floor(Math.random() * logoUrls.length);
-            let tries = 0;
-            let x: number;
-            do {
-              x = 40 + Math.random() * (cw - 80);
-              tries++;
-            } while (
-              tries < 10 &&
-              logosRef.current.some((l) => Math.abs(l.x - x) < l.radius * 3)
-            );
-            logosRef.current.push({
-              pidx,
-              x,
-              y: -80,
-              vx: (Math.random() - 0.5) * 2,
-              vy: (1 + Math.random() * 2) * tMul,
-              rotation: Math.random() * Math.PI * 2,
-              radius: 20,
-            });
-          };
-          if (k === 0) poke(k);
-          else setTimeout(() => poke(k), k * 80);
+        for (let k = 0; k < cnt && logosRef.current.length < maxLogos; k++) {
+          const pidx = Math.floor(Math.random() * logoUrls.length);
+          let tries = 0;
+          let x: number;
+          do {
+            x = 40 + Math.random() * (cw - 80);
+            tries++;
+          } while (
+            tries < 10 &&
+            logosRef.current.some((l) => Math.abs(l.x - x) < l.radius * 3)
+          );
+          logosRef.current.push({
+            pidx,
+            x,
+            y: -80,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (1 + Math.random() * 2) * tMul,
+            rotation: Math.random() * Math.PI * 2,
+            radius: 20,
+          });
         }
         scheduleSpawn();
       }, delay);
