@@ -12,7 +12,7 @@ interface RevealScreenProps {
 }
 
 const MODEL_LOGOS: [RegExp, string][] = [
-  [/claude|sonnet|haiku|opus|fable/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/claude.svg'],
+  [/claude|sonnet|haiku|opus|fable/i, 'https://cdn.simpleicons.org/anthropic/383c4a'],
   [/mistral/i, 'https://cdn.simpleicons.org/mistralai/383c4a'],
   [/gemini/i, 'https://cdn.simpleicons.org/googlegemini/383c4a'],
   [/gpt|o\d/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg'],
