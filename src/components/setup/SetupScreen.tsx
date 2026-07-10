@@ -294,7 +294,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   const imgsReady = useRef(false);
 
   interface Particle {
-    x: number; y: number; vx: number; vy: number; rot: number; rv: number; imgIdx: number;
+    x: number; y: number; vx: number; vy: number; rot: number; rv: number; imgIdx: number; mid: string;
   }
 
   const radius = 20;
@@ -318,62 +318,52 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     }
   }, [step]);
 
+  function logoFor(m: ModelInfo): number {
+    const t = m.id.toLowerCase() + m.name.toLowerCase();
+    if (/gpt|o\d/.test(t)) return 0;
+    if (/gemini/.test(t)) return 1;
+    if (/claude|sonnet|haiku|opus|fable/.test(t)) return 2;
+    if (/mistral/.test(t)) return 3;
+    if (/deepseek/.test(t)) return 4;
+    if (/llama|meta/.test(t)) return 5;
+    if (/qwen/.test(t)) return 6;
+    return Math.floor(Math.random() * 7);
+  }
+
   // — particle syncer (reacts to selection changes) —
   useEffect(() => {
-    if (step !== 'models' || !imgsReady.current) return;
+    if (step !== 'models') return;
     const enabled = models.filter(m => enabledIds.has(m.id));
     if (enabled.length === 0) { partsRef.current = []; return; }
 
-    // model → logo index (same mapping as rain)
-    const logos: number[] = [];
-    for (const m of enabled) {
-      const t = m.id.toLowerCase() + m.name.toLowerCase();
-      if (/gpt|o\d/.test(t)) logos.push(0);
-      else if (/gemini/.test(t)) logos.push(1);
-      else if (/claude|sonnet|haiku|opus|fable/.test(t)) logos.push(2);
-      else if (/mistral/.test(t)) logos.push(3);
-      else if (/deepseek/.test(t)) logos.push(4);
-      else if (/llama|meta/.test(t)) logos.push(5);
-      else if (/qwen/.test(t)) logos.push(6);
-      else logos.push(Math.floor(Math.random() * 7));
-    }
-
-    const target = Math.min(MAX_PARTS, Math.max(8, enabled.length * 2));
     const parts = partsRef.current;
+    const sel = new Set(enabled.map(m => m.id));
     const cw = window.innerWidth;
     const ch = window.innerHeight;
 
-    if (parts.length === 0) {
-      // fresh burst on entry
-      for (let i = 0; i < target; i++) {
-        const side = Math.random() < 0.5 ? -1 : 1;
-        const spd = 7 + Math.random() * 8;
-        parts.push({
-          x: side === -1 ? -radius : cw + radius,
-          y: Math.random() * ch,
-          vx: side * spd,
-          vy: (-2 + Math.random() * 4) * 3,
-          rot: Math.random() * Math.PI * 2,
-          rv: (Math.random() - 0.5) * 0.15,
-          imgIdx: logos[Math.floor(Math.random() * logos.length)],
-        });
+    // Remove particles for deselected models (matching by mid)
+    for (let i = parts.length - 1; i >= 0; i--) {
+      if (!sel.has(parts[i].mid)) {
+        parts.splice(i, 1);
       }
-    } else {
-      // incremental: add / trim
-      while (parts.length < target) {
-        const side = Math.random() < 0.5 ? -1 : 1;
-        const spd = 7 + Math.random() * 8;
-        parts.push({
-          x: side === -1 ? -radius : cw + radius,
-          y: Math.random() * ch,
-          vx: side * spd,
-          vy: (-2 + Math.random() * 4) * 3,
-          rot: Math.random() * Math.PI * 2,
-          rv: (Math.random() - 0.5) * 0.15,
-          imgIdx: logos[Math.floor(Math.random() * logos.length)],
-        });
-      }
-      parts.length = Math.min(parts.length, target);
+    }
+
+    // Add particles for newly selected models
+    for (const m of enabled) {
+      if (parts.some(p => p.mid === m.id)) continue;
+      if (parts.length >= MAX_PARTS) break;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const spd = 7 + Math.random() * 8;
+      parts.push({
+        x: side === -1 ? -radius : cw + radius,
+        y: Math.random() * ch,
+        vx: side * spd,
+        vy: (-2 + Math.random() * 4) * 3,
+        rot: Math.random() * Math.PI * 2,
+        rv: (Math.random() - 0.5) * 0.15,
+        imgIdx: logoFor(m),
+        mid: m.id,
+      });
     }
   }, [step, enabledIds, models]);
 
@@ -398,8 +388,10 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       const cw = canvas.width, ch = canvas.height;
       const listEl = canvas.parentElement?.querySelector('.max-w-2xl');
       const obs = listEl ? listEl.getBoundingClientRect() : null;
+      const pts = partsRef.current;
 
-      for (const p of partsRef.current) {
+      // positions & wall bounce
+      for (const p of pts) {
         p.x += p.vx; p.y += p.vy; p.rot += p.rv;
 
         if (p.x < radius) { p.x = radius; p.vx = -p.vx * 0.85; }
@@ -413,7 +405,36 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
           else { p.x = obs.right + radius; p.vx = -p.vx * 0.6; }
           p.vy *= 0.6;
         }
+      }
 
+      // particle-particle collision
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[j].x - pts[i].x;
+          const dy = pts[j].y - pts[i].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = radius * 2;
+          if (dist >= minDist || dist < 0.01) continue;
+          const nx = dx / dist, ny = dy / dist;
+          const overlap = minDist - dist;
+          pts[i].x -= nx * overlap * 0.5;
+          pts[i].y -= ny * overlap * 0.5;
+          pts[j].x += nx * overlap * 0.5;
+          pts[j].y += ny * overlap * 0.5;
+          const dvx = pts[j].vx - pts[i].vx;
+          const dvy = pts[j].vy - pts[i].vy;
+          const dvn = dvx * nx + dvy * ny;
+          if (dvn < 0) {
+            pts[i].vx += dvn * nx * 0.85;
+            pts[i].vy += dvn * ny * 0.85;
+            pts[j].vx -= dvn * nx * 0.85;
+            pts[j].vy -= dvn * ny * 0.85;
+          }
+        }
+      }
+
+      // draw
+      for (const p of pts) {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
