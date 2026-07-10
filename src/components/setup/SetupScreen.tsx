@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useDeferredValue, memo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useDeferredValue, memo, useEffect, useRef } from 'react';
 import { AlertTriangle, Check, Key, Search, ShieldBan, Sparkles, Sun, Moon, Wand2, X } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
