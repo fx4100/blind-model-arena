@@ -1,13 +1,56 @@
-node_modules
-dist
-.env
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production / Builds
+dist/
+dist-ssr/
 *.local
-.vscode
-.agent
-supabase/.temp
+
+# Environment variables & Credentials
+.env
+.env.production
+.env.development
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+
+# Supabase / Local database config
+supabase/.temp/
+
+# IDE / System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Agent files & Scratchpads
+.agent/
+.agents/
 .opencode/
+SKILL.md
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Project generated artifacts (fonts and PDFs)
 *.ttf
 *.pdf
-SKILL.md
-scripts/
+Blind_Model_Arena.pdf
 deploy.sh
+scripts/

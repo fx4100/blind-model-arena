@@ -60,11 +60,8 @@ export function getEdgeFunctionUrl(): string {
   const customUrl = import.meta.env.VITE_EDGE_FUNCTION_URL;
   if (customUrl) return customUrl;
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  if (supabaseUrl) return `${supabaseUrl}/functions/v1/llm-proxy`;
-
-  // Fallback for projects that don't have env vars yet
-  return 'https://sbqyohmjugwqlzpepeyu.supabase.co/functions/v1/llm-proxy';
+  // Route to the same-origin Vercel Edge Function proxy by default
+  return '/api/llm-proxy';
 }
 
 // ---------------------------------------------------------------------------

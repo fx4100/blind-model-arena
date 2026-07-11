@@ -36,5 +36,12 @@ export default defineConfig(({ command }) => ({
   server: {
     allowedHosts: true,
     hmr: false,
+    proxy: {
+      '/api/llm-proxy': {
+        target: 'https://sbqyohmjugwqlzpepeyu.supabase.co/functions/v1',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      }
+    }
   },
 }))
