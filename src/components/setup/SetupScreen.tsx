@@ -283,6 +283,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // -- Speed mode state --
   const [speedExpanded, setSpeedExpanded] = useState(false);
   const [speedError, setSpeedError] = useState('');
+  const [speedLoading, setSpeedLoading] = useState(false);
 
   // -- Blacklist / allowed models (set of model IDs) --
   const [enabledIds, setEnabledIds] = useState<Set<string>>(new Set());
@@ -522,6 +523,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   // ========== Speed mode handlers ==========
   const handleSpeedMode = useCallback(async (rounds: number) => {
     setSpeedError('');
+    setSpeedLoading(true);
     try {
       const amdUrl = import.meta.env.VITE_AMD_ENDPOINT?.replace(/\/+$/, '');
       const amdKey = import.meta.env.VITE_AMD_API_KEY;
@@ -533,9 +535,11 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         if (!res.ok) throw new Error(`status ${res.status}`);
       }
     } catch {
+      setSpeedLoading(false);
       setSpeedError('AMD GPU is not available. Try later or ask for fix.');
       return;
     }
+    setSpeedLoading(false);
     try {
       const m = await demoProvider.fetchModels();
       onStart({
@@ -739,7 +743,11 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
               {speedExpanded && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <p className="text-sm font-medium text-foreground/70 mb-3">Rounds:</p>
-                  {speedError ? (
+                  {speedLoading ? (
+                    <div className="flex items-center justify-center py-3">
+                      <Spinner size={18} />
+                    </div>
+                  ) : speedError ? (
                     <p className="text-sm text-destructive flex items-center gap-1">
                       <AlertTriangle size={14} />
                       {speedError}
