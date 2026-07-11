@@ -8,6 +8,7 @@ const DEMO_MODELS: ModelInfo[] = [
   { id: 'demo/llama-3.3-70b', name: 'Llama 3.3 70B (simulated)', provider: 'openrouter' },
   { id: 'demo/mistral-large', name: 'Mistral Large (simulated)', provider: 'openrouter' },
   { id: 'demo/qwen-2.5-72b', name: 'Qwen 2.5 72B (simulated)', provider: 'openrouter' },
+  { id: 'gpt-oss-20b', name: 'AMD GPU (gpt-oss-20b)', provider: 'custom' },
 ];
 
 // ---- 15 canned responses (themed so they still feel like real LLM output) ----

@@ -377,19 +377,19 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       return;
     }
 
-    // ---- Demo mode: AMD-backed or fallback ----
+    // ---- Demo mode: per-model routing (AMD-backed or simulated) ----
     let textA = '';
     let textB = '';
 
-    if (config.amdAlive) {
-      const messages = buildMessages();
-      const amdUrl = import.meta.env.VITE_AMD_ENDPOINT;
-      const amdKey = import.meta.env.VITE_AMD_API_KEY;
-      const amdModel = import.meta.env.VITE_AMD_MODEL_ID;
-
-      const streamViaAmd = async (
-        setText: (t: string) => void,
-      ): Promise<{ text: string; elapsed: number }> => {
+    const streamFromBackend = async (
+      model: ModelInfo,
+      setText: (t: string) => void,
+    ): Promise<{ text: string; elapsed: number }> => {
+      if (config.amdAlive && model.provider === 'custom') {
+        const messages = buildMessages();
+        const amdUrl = import.meta.env.VITE_AMD_ENDPOINT;
+        const amdKey = import.meta.env.VITE_AMD_API_KEY;
+        const amdModel = import.meta.env.VITE_AMD_MODEL_ID;
         let txt = '';
         const t1 = performance.now();
         const res = await fetchLLM({
@@ -404,73 +404,39 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           setText(txt);
         }
         return { text: txt, elapsed: performance.now() - t1 };
-      };
-
-      const [resA, resB] = await Promise.allSettled([
-        streamViaAmd(throttledSetA),
-        streamViaAmd(throttledSetB),
-      ]);
-      timeA = resA.status === 'fulfilled' ? resA.value.elapsed : 0;
-      timeB = resB.status === 'fulfilled' ? resB.value.elapsed : 0;
-
-      setIsStreamingA(false);
-      setIsStreamingB(false);
-
-      textA = resA.status === 'fulfilled' ? resA.value.text : '';
-      textB = resB.status === 'fulfilled' ? resB.value.text : '';
-
-      if (resA.status === 'rejected') {
-        setErrorA(resA.reason instanceof Error ? resA.reason.message : 'Request failed');
       }
-      if (resB.status === 'rejected') {
-        setErrorB(resB.reason instanceof Error ? resB.reason.message : 'Request failed');
+      const req = buildRequest(model);
+      let txt = '';
+      const t1 = performance.now();
+      for await (const chunk of demoProvider.chat(req)) {
+        txt += chunk.content;
+        setText(txt);
       }
+      return { text: txt, elapsed: performance.now() - t1 };
+    };
 
-      setResponseA(textA);
-      setResponseB(textB);
-    } else {
-      // ---- Demo fallback: simulated provider ----
-      const provider = demoProvider;
-      const reqA = buildRequest(shuffle.behindA);
-      const reqB = buildRequest(shuffle.behindB);
+    const [resA, resB] = await Promise.allSettled([
+      streamFromBackend(shuffle.behindA, throttledSetA),
+      streamFromBackend(shuffle.behindB, throttledSetB),
+    ]);
+    timeA = resA.status === 'fulfilled' ? resA.value.elapsed : 0;
+    timeB = resB.status === 'fulfilled' ? resB.value.elapsed : 0;
 
-      const [resultA, resultB] = await Promise.allSettled([
-        (async () => {
-          let text = '';
-          for await (const chunk of provider.chat(reqA)) {
-            text += chunk.content;
-            throttledSetA(text);
-          }
-          timeA = performance.now() - t0;
-          return text;
-        })(),
-        (async () => {
-          let text = '';
-          for await (const chunk of provider.chat(reqB)) {
-            text += chunk.content;
-            throttledSetB(text);
-          }
-          timeB = performance.now() - t0;
-          return text;
-        })(),
-      ]);
+    setIsStreamingA(false);
+    setIsStreamingB(false);
 
-      setIsStreamingA(false);
-      setIsStreamingB(false);
+    textA = resA.status === 'fulfilled' ? resA.value.text : '';
+    textB = resB.status === 'fulfilled' ? resB.value.text : '';
 
-      textA = resultA.status === 'fulfilled' ? resultA.value : '';
-      textB = resultB.status === 'fulfilled' ? resultB.value : '';
-
-      if (resultA.status === 'rejected') {
-        setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
-      }
-      if (resultB.status === 'rejected') {
-        setErrorB(resultB.reason instanceof Error ? resultB.reason.message : 'Request failed');
-      }
-
-      setResponseA(textA);
-      setResponseB(textB);
+    if (resA.status === 'rejected') {
+      setErrorA(resA.reason instanceof Error ? resA.reason.message : 'Request failed');
     }
+    if (resB.status === 'rejected') {
+      setErrorB(resB.reason instanceof Error ? resB.reason.message : 'Request failed');
+    }
+
+    setResponseA(textA);
+    setResponseB(textB);
 
     const tokensA = countTokens(textA);
     const tokensB = countTokens(textB);
