@@ -527,9 +527,16 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     try {
       const amdUrl = import.meta.env.VITE_AMD_ENDPOINT?.replace(/\/+$/, '');
       const amdKey = import.meta.env.VITE_AMD_API_KEY;
-      if (amdUrl && amdKey) {
-        const res = await fetch(amdUrl + '/models', {
-          headers: { Authorization: `Bearer ${amdKey}` },
+      const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (amdUrl && amdKey && supabaseAnon) {
+        const res = await fetch(getEdgeFunctionUrl() + '/models', {
+          method: 'GET',
+          headers: {
+            'x-api-key': amdKey,
+            'x-provider': 'custom',
+            'x-endpoint': amdUrl,
+            'Authorization': `Bearer ${supabaseAnon}`,
+          },
           signal: AbortSignal.timeout(5000),
         });
         if (!res.ok) throw new Error(`status ${res.status}`);

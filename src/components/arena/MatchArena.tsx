@@ -32,62 +32,6 @@ function pickAndShuffle(pool: ModelInfo[]): { behindA: ModelInfo; behindB: Model
     : { behindA: m2, behindB: m1 };
 }
 
-/**
- * Direct streaming call to an OpenAI-compatible chat completions endpoint.
- * Used by speed mode to hit Fireworks & AMD GPU directly (no proxy).
- */
-async function* streamDirect(
-  baseUrl: string,
-  apiKey: string,
-  model: string,
-  messages: { role: string; content: string }[],
-): AsyncGenerator<{ content: string; done: boolean }> {
-  const url = baseUrl.replace(/\/+$/, '') + '/chat/completions';
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model, messages, stream: true }),
-  });
-
-  if (!res.ok) {
-    let msg = `API returned ${res.status}`;
-    try { const j = await res.json(); msg = j.error?.message ?? JSON.stringify(j); } catch {}
-    throw new Error(msg);
-  }
-
-  const reader = res.body?.getReader();
-  if (!reader) throw new Error('No response body');
-
-  const decoder = new TextDecoder();
-  let buffer = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t || !t.startsWith('data: ')) continue;
-      const jsonStr = t.slice(6);
-      if (jsonStr === '[DONE]') { yield { content: '', done: true }; return; }
-      try {
-        const json = JSON.parse(jsonStr);
-        const delta = json.choices?.[0]?.delta?.content || '';
-        if (delta) yield { content: delta, done: false };
-      } catch {}
-    }
-  }
-
-  yield { content: '', done: true };
-}
-
 /** Tokenize text with gpt-tokenizer and return the token count. */
 function countTokens(text: string): number {
   if (!text) return 0;
@@ -291,36 +235,41 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       const swap = Math.random() < 0.5;
       swapRef.current = swap;
 
-      const [resultA, resultB] = await Promise.allSettled([
-        (async () => {
-          let text = '';
-          for await (const chunk of streamDirect(
-            swap ? amdUrl : 'https://api.fireworks.ai/inference/v1',
-            swap ? amdKey : fwKey,
-            swap ? amdModel : fwModel,
-            messages,
-          )) {
-            text += chunk.content;
-            throttledSetA(text);
-          }
-          timeA = performance.now() - t0;
-          return text;
-        })(),
-        (async () => {
-          let text = '';
-          for await (const chunk of streamDirect(
-            swap ? 'https://api.fireworks.ai/inference/v1' : amdUrl,
-            swap ? fwKey : amdKey,
-            swap ? fwModel : amdModel,
-            messages,
-          )) {
-            text += chunk.content;
-            throttledSetB(text);
-          }
-          timeB = performance.now() - t0;
-          return text;
-        })(),
-      ]);
+      const streamViaProxy = async (
+        provider: LlmProvider, k: string, mdl: string, ep: string | undefined,
+        setText: (t: string) => void,
+      ): Promise<{ text: string; elapsed: number }> => {
+        let text = '';
+        const t1 = performance.now();
+        const res = await fetchLLM({
+          model: { id: mdl, name: mdl, provider },
+          messages, apiKey: k, provider, endpoint: ep,
+        });
+        for await (const chunk of readSSEStream(res)) {
+          text += chunk.content;
+          setText(text);
+        }
+        return { text, elapsed: performance.now() - t1 };
+      };
+
+      const aProm = streamViaProxy(
+        swap ? 'custom' : 'fireworks',
+        swap ? amdKey : fwKey,
+        swap ? amdModel : fwModel,
+        swap ? amdUrl : undefined,
+        throttledSetA,
+      );
+      const bProm = streamViaProxy(
+        swap ? 'fireworks' : 'custom',
+        swap ? fwKey : amdKey,
+        swap ? fwModel : amdModel,
+        swap ? undefined : amdUrl,
+        throttledSetB,
+      );
+
+      const [resultA, resultB] = await Promise.allSettled([aProm, bProm]);
+      timeA = resultA.status === 'fulfilled' ? resultA.value.elapsed : 0;
+      timeB = resultB.status === 'fulfilled' ? resultB.value.elapsed : 0;
 
       setIsStreamingA(false);
       setIsStreamingB(false);
@@ -454,8 +403,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     setIsStreamingA(false);
     setIsStreamingB(false);
 
-    const textA = resultA.status === 'fulfilled' ? resultA.value : '';
-    const textB = resultB.status === 'fulfilled' ? resultB.value : '';
+      const textA = resultA.status === 'fulfilled' ? resultA.value.text : '';
+      const textB = resultB.status === 'fulfilled' ? resultB.value.text : '';
 
     if (resultA.status === 'rejected') {
       setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
