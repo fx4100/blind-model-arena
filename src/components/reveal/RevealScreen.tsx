@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { RefreshCw, Trophy, Zap, ChevronDown, ChevronUp, Crown } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
@@ -15,6 +15,12 @@ interface RevealScreenProps {
 
 const AMD_ARROW = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAwIDEwMDAiPjxwYXRoIGQ9Ik00Ni4xLDc3NS4zVjU5Ny4xbDI1NC40LTI1NC40djM1Ni41aDM1Ni41TDQwMi43LDk1My42SDQ2LjFWNzc1LjN6IE04MjkuNyw4MjIuN2wtMTIzLTEyM1YyOTQuMUgzMDEuMUw1My40LDQ2LjRoODk5LjlsMC4xLDQ0NS41bDAuNCw0NDcuOGMwLjEsMS40LDAsMi44LTAuNCw0LjJDOTUyLjksOTQ1LjMsOTIwLjgsOTEzLjgsODI5LjcsODIyLjdMODI5LjcsODIyLjd6Ii8+PC9zdmc+';
 
+const FW_LOGO = 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg';
+
+function provLogo(prov: string): string {
+  return prov === 'Fireworks' ? FW_LOGO : AMD_ARROW;
+}
+
 const MODEL_LOGOS: [RegExp, string][] = [
   [/claude|sonnet|haiku|opus|fable/i, 'https://cdn.simpleicons.org/anthropic/383c4a'],
   [/mistral/i, 'https://cdn.simpleicons.org/mistralai/383c4a'],
@@ -23,7 +29,7 @@ const MODEL_LOGOS: [RegExp, string][] = [
   [/llama/i, 'https://cdn.simpleicons.org/meta/383c4a'],
   [/deepseek/i, 'https://cdn.simpleicons.org/deepseek/383c4a'],
   [/qwen/i, 'https://cdn.simpleicons.org/qwen/383c4a'],
-  [/fireworks/i, 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg'],
+  [/fireworks/i, FW_LOGO],
   [/amd|radeon/i, AMD_ARROW],
 ];
 
@@ -109,6 +115,21 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
 
   const totalVotes = scores.a + scores.b;
 
+  const [fasterProv, slowerProv] = useMemo(() => {
+    if (!isSpeed) return [null, null] as const;
+    let fwWins = 0;
+    let amdWins = 0;
+    for (const r of rounds) {
+      const fwSide = r.providerLabelA === 'Fireworks' ? 'a' : 'b';
+      const faster = r.timeMsA < r.timeMsB ? 'a' : 'b';
+      if (faster === fwSide) fwWins++;
+      else amdWins++;
+    }
+    const fast = fwWins >= amdWins ? 'Fireworks' : 'AMD';
+    const slow = fwWins >= amdWins ? 'AMD' : 'Fireworks';
+    return [fast, slow] as const;
+  }, [rounds, isSpeed]);
+
   const topModel = isSpeed ? rounds[0]?.modelBehindA ?? null : winner?.model ?? null;
   const secondModel = isSpeed ? rounds[0]?.modelBehindB ?? null : runnerUp?.model ?? null;
 
@@ -125,8 +146,8 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
     if (!bgReady) return;
     const isDark = document.documentElement.classList.contains('dark');
     let url: string | null = null;
-    if (isSpeed) {
-      url = 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg';
+    if (isSpeed && fasterProv) {
+      url = provLogo(fasterProv);
     } else if (topModel) {
       url = getModelLogoUrl(topModel);
     }
@@ -213,7 +234,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
       cancelAnimationFrame(aid);
       window.removeEventListener('resize', resize);
     };
-  }, [bgReady, topModel, isSpeed]);
+  }, [bgReady, topModel, isSpeed, fasterProv]);
 
   const toggleRound = (n: number) => {
     setExpandedRounds((prev) => {
@@ -262,7 +283,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
             animation: 'sldInBg 1s ease-out 0.3s both, rolSlw 45s linear 1.3s infinite',
           }}>
             <img
-              src={isSpeed ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : (getModelLogoUrl(topModel!) ?? '')}
+              src={isSpeed ? provLogo(fasterProv ?? 'Fireworks') : (getModelLogoUrl(topModel!) ?? '')}
               alt=""
               className="w-48 h-48 opacity-[0.04] grayscale"
             />
@@ -271,7 +292,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
             animation: 'sldInBg 1s ease-out 0.6s both, rolSlw 45s linear 1.6s infinite reverse',
           }}>
             <img
-              src={isSpeed ? AMD_ARROW : (getModelLogoUrl(secondModel ?? topModel!) ?? '')}
+              src={isSpeed ? provLogo(slowerProv ?? 'AMD') : (getModelLogoUrl(secondModel ?? topModel!) ?? '')}
               alt=""
               className="w-48 h-48 opacity-[0.04] grayscale"
             />
@@ -457,10 +478,10 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                 {(() => {
                   const provMap = new Map<string, { tps: number; cnt: number; logo: string }>();
                   for (const r of rounds) {
-                    const a = provMap.get(r.providerLabelA!) ?? { tps: 0, cnt: 0, logo: r.providerLabelA === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW };
+                    const a = provMap.get(r.providerLabelA!) ?? { tps: 0, cnt: 0, logo: provLogo(r.providerLabelA ?? 'Fireworks') };
                     a.tps += r.tpsA; a.cnt++;
                     provMap.set(r.providerLabelA!, a);
-                    const b = provMap.get(r.providerLabelB!) ?? { tps: 0, cnt: 0, logo: r.providerLabelB === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW };
+                    const b = provMap.get(r.providerLabelB!) ?? { tps: 0, cnt: 0, logo: provLogo(r.providerLabelB ?? 'AMD') };
                     b.tps += r.tpsB; b.cnt++;
                     provMap.set(r.providerLabelB!, b);
                   }
@@ -564,7 +585,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                         <div className={`p-2 rounded-none ${isSpeed ? (round.timeMsA < round.timeMsB ? 'bg-amber-500/5 border-l-2 border-amber-500' : '') : (isAWin ? 'bg-primary/5 border-l-2 border-primary' : '')}`}>
                           <div className="flex items-center gap-1.5 mb-1">
                             {isSpeed ? (
-                              <img src={round.providerLabelA === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
+                              <img src={provLogo(round.providerLabelA ?? 'Fireworks')} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             ) : getModelLogoUrl(round.modelBehindA) && (
                               <img src={getModelLogoUrl(round.modelBehindA)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             )}
@@ -586,7 +607,7 @@ export function RevealScreen({ rounds, scores, onPlayAgain, gameMode = 'standard
                         <div className={`p-2 rounded-none ${isSpeed ? (round.timeMsB < round.timeMsA ? 'bg-amber-500/5 border-l-2 border-amber-500' : '') : (!isAWin ? 'bg-primary/5 border-l-2 border-primary' : '')}`}>
                           <div className="flex items-center gap-1.5 mb-1">
                             {isSpeed ? (
-                              <img src={round.providerLabelB === 'Fireworks' ? 'https://unpkg.com/@lobehub/icons-static-svg@latest/icons/fireworks.svg' : AMD_ARROW} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
+                              <img src={provLogo(round.providerLabelB ?? 'AMD')} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             ) : getModelLogoUrl(round.modelBehindB) && (
                               <img src={getModelLogoUrl(round.modelBehindB)!} alt="" className="w-3.5 h-3.5 shrink-0 theme-logo" />
                             )}

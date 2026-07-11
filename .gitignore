@@ -10,3 +10,4 @@ supabase/.temp
 *.pdf
 SKILL.md
 scripts/
+deploy.sh

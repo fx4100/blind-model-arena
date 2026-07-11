@@ -285,6 +285,9 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   const [speedError, setSpeedError] = useState('');
   const [speedLoading, setSpeedLoading] = useState(false);
 
+  // -- Demo + AMD state --
+  const [amdAlive, setAmdAlive] = useState(false);
+
   // -- Blacklist / allowed models (set of model IDs) --
   const [enabledIds, setEnabledIds] = useState<Set<string>>(new Set());
 
@@ -510,6 +513,27 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
   const handleDemoMode = useCallback(async () => {
     setMode('demo');
     setCustomGameMode('standard');
+    setAmdAlive(false);
+    try {
+      const amdUrl = import.meta.env.VITE_AMD_ENDPOINT?.replace(/\/+$/, '');
+      const amdKey = import.meta.env.VITE_AMD_API_KEY;
+      const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (amdUrl && amdKey && supabaseAnon) {
+        const res = await fetch(getEdgeFunctionUrl() + '/models', {
+          method: 'GET',
+          headers: {
+            'x-api-key': amdKey,
+            'x-provider': 'custom',
+            'x-endpoint': amdUrl,
+            'Authorization': `Bearer ${supabaseAnon}`,
+          },
+          signal: AbortSignal.timeout(5000),
+        });
+        setAmdAlive(res.ok);
+      }
+    } catch {
+      // AMD unreachable, fallback to demo provider
+    }
     try {
       const m = await demoProvider.fetchModels();
       setModels(m);
@@ -631,6 +655,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         allowedModels,
         systemPrompt,
         totalRounds: isSpeed ? 7 : totalRounds,
+        amdAlive: amdAlive && !isSpeed,
       });
     } else if (mode === 'byok' && selectedProvider) {
       onStart({
@@ -644,7 +669,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         totalRounds,
       });
     }
-  }, [mode, selectedProvider, apiKey, customEndpoint, models, enabledIds, selectionMode, systemPrompt, totalRounds, customGameMode, onStart]);
+  }, [mode, selectedProvider, apiKey, customEndpoint, models, enabledIds, selectionMode, systemPrompt, totalRounds, customGameMode, onStart, amdAlive]);
 
   // ========== Memoised filtered list ==========
   const currentModels = models;

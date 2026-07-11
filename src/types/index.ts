@@ -43,6 +43,8 @@ export interface MatchConfig {
   allowedModels: ModelInfo[];
   systemPrompt: string;
   totalRounds: number;
+  /** Demo mode: AMD GPU is reachable — use live inference instead of canned responses */
+  amdAlive?: boolean;
 }
 
 // ---------------------------------------------------------------------------
