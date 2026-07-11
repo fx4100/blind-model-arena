@@ -242,9 +242,13 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       ): Promise<{ text: string; elapsed: number }> => {
         let text = '';
         const t1 = performance.now();
+        const isAmd = provider === 'custom';
+        const msgs = isAmd
+          ? [...messages, { role: 'assistant' as const, content: '<think></think>' }]
+          : messages;
         const res = await fetchLLM({
           model: { id: mdl, name: mdl, provider },
-          messages, apiKey: k, provider, endpoint: ep,
+          messages: msgs, apiKey: k, provider, endpoint: ep,
         });
         for await (const chunk of readSSEStream(res)) {
           text += chunk.content;

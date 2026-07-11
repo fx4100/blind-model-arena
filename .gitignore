@@ -5,3 +5,8 @@ dist
 .vscode
 .agent
 supabase/.temp
+.opencode/
+*.ttf
+*.pdf
+SKILL.md
+scripts/
