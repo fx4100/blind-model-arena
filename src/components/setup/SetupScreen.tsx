@@ -536,7 +536,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       }
     } catch {
       setSpeedLoading(false);
-      setSpeedError('AMD GPU is not available. Try later or ask for fix.');
+      setSpeedError('AMD GPU is not available. Try again later or ask for fix.');
       return;
     }
     setSpeedLoading(false);
