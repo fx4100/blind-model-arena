@@ -100,6 +100,7 @@ export async function fetchLLM(params: FetchLLMParams): Promise<Response> {
       model: model.id,
       messages,
       stream: true,
+      max_tokens: 2048,
     }),
   });
 
