@@ -282,6 +282,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
 
   // -- Speed mode state --
   const [speedExpanded, setSpeedExpanded] = useState(false);
+  const [speedError, setSpeedError] = useState('');
 
   // -- Blacklist / allowed models (set of model IDs) --
   const [enabledIds, setEnabledIds] = useState<Set<string>>(new Set());
@@ -520,6 +521,21 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
 
   // ========== Speed mode handlers ==========
   const handleSpeedMode = useCallback(async (rounds: number) => {
+    setSpeedError('');
+    try {
+      const amdUrl = import.meta.env.VITE_AMD_ENDPOINT?.replace(/\/+$/, '');
+      const amdKey = import.meta.env.VITE_AMD_API_KEY;
+      if (amdUrl && amdKey) {
+        const res = await fetch(amdUrl + '/models', {
+          headers: { Authorization: `Bearer ${amdKey}` },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+      }
+    } catch {
+      setSpeedError('AMD GPU is not available. Try later or ask for fix.');
+      return;
+    }
     try {
       const m = await demoProvider.fetchModels();
       onStart({
@@ -723,17 +739,24 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
               {speedExpanded && (
                 <div className="mt-4 pt-4 border-t border-border">
                   <p className="text-sm font-medium text-foreground/70 mb-3">Rounds:</p>
-                  <div className="flex gap-2">
-                    {[3, 5, 7, 10].map((n) => (
-                      <button
-                        key={n}
-                        onClick={() => handleSpeedMode(n)}
-                        className="flex-1 px-4 py-3 rounded-xl border border-border text-sm font-medium cursor-pointer transition-all bg-muted text-foreground/70 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
-                      >
-                        {n}
-                      </button>
-                    ))}
-                  </div>
+                  {speedError ? (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertTriangle size={14} />
+                      {speedError}
+                    </p>
+                  ) : (
+                    <div className="flex gap-2">
+                      {[3, 5, 7, 10].map((n) => (
+                        <button
+                          key={n}
+                          onClick={() => handleSpeedMode(n)}
+                          className="flex-1 px-4 py-3 rounded-xl border border-border text-sm font-medium cursor-pointer transition-all bg-muted text-foreground/70 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
