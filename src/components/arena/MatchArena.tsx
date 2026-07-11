@@ -73,7 +73,8 @@ async function* readSSEStream(
 
       try {
         const json = JSON.parse(jsonStr);
-        const raw = json.choices?.[0]?.delta?.content;
+        const d = json.choices?.[0]?.delta;
+        const raw = d?.content || d?.reasoning || '';
         const delta = typeof raw === 'string' ? raw : '';
         if (delta) yield { content: delta, done: false };
       } catch {
