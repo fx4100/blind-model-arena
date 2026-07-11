@@ -529,7 +529,8 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       const amdKey = import.meta.env.VITE_AMD_API_KEY;
       const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
       if (amdUrl && amdKey && supabaseAnon) {
-        const res = await fetch(getEdgeFunctionUrl() + '/models', {
+        const edgeUrl = getEdgeFunctionUrl();
+        const res = await fetch(edgeUrl + '/models', {
           method: 'GET',
           headers: {
             'x-api-key': amdKey,
@@ -539,11 +540,14 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
           },
           signal: AbortSignal.timeout(5000),
         });
-        if (!res.ok) throw new Error(`status ${res.status}`);
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(`Edge Function returned ${res.status}: ${txt.slice(0, 120)}`);
+        }
       }
-    } catch {
+    } catch (e: any) {
       setSpeedLoading(false);
-      setSpeedError('AMD GPU is not available. Try again later or ask for fix.');
+      setSpeedError(`AMD GPU unreachable: ${e?.message || e}`);
       return;
     }
     setSpeedLoading(false);

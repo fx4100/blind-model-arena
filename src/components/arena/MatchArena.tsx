@@ -274,8 +274,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       setIsStreamingA(false);
       setIsStreamingB(false);
 
-      const textA = resultA.status === 'fulfilled' ? resultA.value : '';
-      const textB = resultB.status === 'fulfilled' ? resultB.value : '';
+      const textA = resultA.status === 'fulfilled' ? resultA.value.text : '';
+      const textB = resultB.status === 'fulfilled' ? resultB.value.text : '';
       if (resultA.status === 'rejected') setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
       if (resultB.status === 'rejected') setErrorB(resultB.reason instanceof Error ? resultB.reason.message : 'Request failed');
 
@@ -283,8 +283,6 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       setResponseB(textB);
 
       actualFasterRef.current = timeA < timeB ? 'a' : 'b';
-
-      const provLabel = (p: boolean) => p ? 'AMD' : 'Fireworks';
 
       const tokensA = countTokens(textA);
       const tokensB = countTokens(textB);
@@ -403,8 +401,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     setIsStreamingA(false);
     setIsStreamingB(false);
 
-      const textA = resultA.status === 'fulfilled' ? resultA.value.text : '';
-      const textB = resultB.status === 'fulfilled' ? resultB.value.text : '';
+      const textA = resultA.status === 'fulfilled' ? resultA.value : '';
+      const textB = resultB.status === 'fulfilled' ? resultB.value : '';
 
     if (resultA.status === 'rejected') {
       setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
