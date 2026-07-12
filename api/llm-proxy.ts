@@ -137,7 +137,17 @@ async function handleChat(req: Request) {
   }
 
   // Standard OpenAI-compatible
-  const init: RequestInit = { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` }, body: bodyText };
+  let body = bodyText;
+  // When using server-side key (speed mode), override model ID for known providers
+  if (!uk) {
+    try {
+      const p = JSON.parse(bodyText);
+      if (prov === "custom") p.model = "openai/gpt-oss-20b";
+      else if (prov === "fireworks" || prov === "firework") p.model = "accounts/fireworks/models/gpt-oss-20b";
+      body = JSON.stringify(p);
+    } catch {}
+  }
+  const init: RequestInit = { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` }, body };
   const ac = new AbortController();
   const to = setTimeout(() => ac.abort(), 120000);
   init.signal = ac.signal;
