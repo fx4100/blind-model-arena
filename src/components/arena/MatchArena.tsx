@@ -4,7 +4,6 @@ import { encode } from 'gpt-tokenizer';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
-import { marked } from 'marked';
 import { demoProvider } from '../../providers/demo';
 import { fetchLLM, proxySaveMatch, proxySaveRound } from '../../services/api';
 import type {
@@ -38,6 +37,33 @@ function countTokens(text: string): number {
 
 function formatTps(tps: number): string {
   return tps.toFixed(1);
+}
+
+function renderMarkdown(md: string): string {
+  let h = ''
+    .concat(md)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+  h = h.replace(/### (.+)/g, '<h3>$1</h3>');
+  h = h.replace(/## (.+)/g, '<h2>$1</h2>');
+  h = h.replace(/# (.+)/g, '<h1>$1</h1>');
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  h = h.replace(/^[\-*] (.+)/gm, '<li>$1</li>');
+  h = h.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  h = h.replace(/^(\d+)\. (.+)/gm, '<li value="$1">$2</li>');
+  h = h.replace(/(?:^|\n)\|(.+)\|\n\|[-| :]+\|\n((?:\|.+\|\n?)*)/g, (_, head, body) => {
+    const hs = head.split('|').filter(Boolean).map((c: string) => `<th>${c.trim()}</th>`).join('');
+    const rows = body.split('\n').filter((l: string) => l.trim()).map((r: string) => {
+      const cs = r.split('|').filter(Boolean).map((c: string) => `<td>${c.trim()}</td>`).join('');
+      return `<tr>${cs}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${hs}</tr></thead><tbody>${rows}</tbody></table>`;
+  });
+  h = h.replace(/\n\n/g, '</p><p>');
+  h = '<p>' + h + '</p>';
+  return h;
 }
 
 async function* readSSEStream(
@@ -466,7 +492,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {errorA ? <div className="text-destructive text-sm p-4 rounded-none bg-destructive/5">{errorA}</div> :
-            responseA ? <div className="text-sm leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-1.5 [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre_code]:bg-transparent [&_pre_code]:p-0" dangerouslySetInnerHTML={{ __html: marked.parse(responseA) }}></div> :
+            responseA ? <div className="text-sm leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-1.5 [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre_code]:bg-transparent [&_pre_code]:p-0" dangerouslySetInnerHTML={{ __html: renderMarkdown(responseA) }}></div> :
             phase === 'responding' ? <div className="flex items-center gap-2 text-foreground/40 text-sm font-mono uppercase tracking-wider"><span className="inline-block w-1.5 h-1.5 bg-primary animate-pulse" /> Generating response…</div> :
             phase === 'prompt' ? <div className="text-foreground/30 text-sm">Enter a prompt above to see the response here.</div> :
             <div className="text-foreground/30 text-sm italic">Said nothing.</div>}
@@ -478,7 +504,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {errorB ? <div className="text-destructive text-sm p-4 rounded-none bg-destructive/5">{errorB}</div> :
-            responseB ? <div className="text-sm leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-1.5 [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre_code]:bg-transparent [&_pre_code]:p-0" dangerouslySetInnerHTML={{ __html: marked.parse(responseB) }}></div> :
+            responseB ? <div className="text-sm leading-relaxed [&_table]:w-full [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-1.5 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-1.5 [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded [&_pre]:overflow-x-auto [&_code]:bg-muted [&_code]:px-1 [&_code]:rounded [&_pre_code]:bg-transparent [&_pre_code]:p-0" dangerouslySetInnerHTML={{ __html: renderMarkdown(responseB) }}></div> :
             phase === 'responding' ? <div className="flex items-center gap-2 text-foreground/40 text-sm font-mono uppercase tracking-wider"><span className="inline-block w-1.5 h-1.5 bg-primary animate-pulse" /> Generating response…</div> :
             phase === 'prompt' ? <div className="text-foreground/30 text-sm">Enter a prompt above to see the response here.</div> :
             <div className="text-foreground/30 text-sm italic">Said nothing.</div>}
