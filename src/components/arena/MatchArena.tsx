@@ -212,7 +212,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       if (resultA.status === 'rejected') setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
       if (resultB.status === 'rejected') setErrorB(resultB.reason instanceof Error ? resultB.reason.message : 'Request failed');
       setResponseA(textA); setResponseB(textB);
-      actualFasterRef.current = timeA < timeB ? 'a' : 'b';
+      actualFasterRef.current = tpsA > tpsB ? 'a' : 'b';
 
       const tokensA = countTokens(textA);
       const tokensB = countTokens(textB);
