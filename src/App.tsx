@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { SetupScreen } from './components/setup/SetupScreen';
 import { MatchArena } from './components/arena/MatchArena';
 import { RevealScreen } from './components/reveal/RevealScreen';
@@ -79,6 +80,7 @@ export default function App() {
           heartsRemaining={results.heartsRemaining}
         />
       )}
+      <Analytics />
     </div>
   );
 }
