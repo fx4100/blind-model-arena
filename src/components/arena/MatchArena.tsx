@@ -239,12 +239,12 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       if (resultA.status === 'rejected') setErrorA(resultA.reason instanceof Error ? resultA.reason.message : 'Request failed');
       if (resultB.status === 'rejected') setErrorB(resultB.reason instanceof Error ? resultB.reason.message : 'Request failed');
       setResponseA(textA); setResponseB(textB);
-      actualFasterRef.current = tpsA > tpsB ? 'a' : 'b';
 
       const tokensA = countTokens(textA);
       const tokensB = countTokens(textB);
       const tpsA = timeA > 0 ? tokensA / (timeA / 1000) : 0;
       const tpsB = timeB > 0 ? tokensB / (timeB / 1000) : 0;
+      actualFasterRef.current = tpsA > tpsB ? 'a' : 'b';
       const inputTokens = countTokens(prompt) + (config.systemPrompt ? countTokens(config.systemPrompt) : 0);
 
       setCurrentRoundStats({
