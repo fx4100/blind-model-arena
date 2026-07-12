@@ -24,12 +24,6 @@ export interface ModelInfo {
   provider: ProviderId;
 }
 
-export interface SpeedProviderConfig {
-  provider: LlmProvider;
-  apiKey: string;
-  endpoint?: string;
-}
-
 export interface MatchConfig {
   mode: AccessMode;
   gameMode: GameMode;
@@ -129,7 +123,7 @@ export interface EdgeFunctionRequest {
 export interface FetchLLMParams {
   model: { id: string; name: string; provider: LlmProvider };
   messages: { role: string; content: string }[];
-  apiKey: string;
+  apiKey?: string;
   provider: LlmProvider;
   endpoint?: string;
 }
