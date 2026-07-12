@@ -17,6 +17,17 @@ const svgImportPlugin = () => ({
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('gpt-tokenizer')) return 'tok';
+          if (id.includes('lucide-react')) return 'ui';
+          if (id.includes('react-dom') || id.includes('scheduler')) return 'dom';
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
