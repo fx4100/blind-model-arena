@@ -568,7 +568,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         });
         if (!res.ok) {
           setSpeedLoading(false);
-          setSpeedError(`AMD GPU is not responding: Either turned off for saving or no more credits left for it.`);
+          setSpeedError(`AMD GPU is not responding: Try again later or open an issue.`);
           return;
         }
       }
@@ -591,7 +591,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       }
     } catch (e: any) {
       setSpeedLoading(false);
-      setSpeedError(`AMD GPU is not responding: Either turned off for saving or no more credits left for it.`);
+      setSpeedError(`AMD GPU is not responding: Try again later or open an issue.`);
       return;
     }
     setSpeedLoading(false);
