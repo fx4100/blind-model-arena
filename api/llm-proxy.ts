@@ -148,11 +148,48 @@ async function handleChat(req: Request) {
   return new Response(txt, { status: up.status, headers: { ...CORS, "Content-Type": up.headers.get("content-type") || "application/json" } });
 }
 
+// Model listing — forwards GET /models to the upstream
+async function handleModels(req: Request): Promise<Response> {
+  const prov = req.headers.get("x-provider") || "";
+  const ep = req.headers.get("x-endpoint");
+  const uk = req.headers.get("x-api-key") || "";
+
+  let key = uk;
+  if (!key) {
+    if (prov === "custom") key = AMD_KEY;
+    else if (prov === "firework" || prov === "fireworks") key = FW_KEY;
+  }
+  if (!key) return json({ error: "No API key" }, 400);
+
+  let base = "";
+  const p = prov;
+  if (p === "custom") base = ep || AMD_URL;
+  else if (p === "firework" || p === "fireworks") base = "https://api.fireworks.ai/inference/v1";
+  else if (p === "openai") base = "https://api.openai.com/v1";
+  else if (p === "openrouter") base = "https://openrouter.ai/api/v1";
+  else if (p === "mistral") base = "https://api.mistral.ai/v1";
+  else if (p === "gemini") {
+    // Gemini uses key as query param
+    const up = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`, { signal: AbortSignal.timeout(10000) });
+    const txt = await up.text();
+    return new Response(txt, { status: up.status, headers: { ...CORS, "Content-Type": up.headers.get("content-type") || "application/json" } });
+  }
+  if (!base) return json({ error: `Unknown provider: ${p}` }, 400);
+
+  const up = await fetch(base + "/models", {
+    headers: { "Authorization": `Bearer ${key}` },
+    signal: AbortSignal.timeout(10000),
+  });
+  const txt = await up.text();
+  return new Response(txt, { status: up.status, headers: { ...CORS, "Content-Type": up.headers.get("content-type") || "application/json" } });
+}
+
 export default async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   try {
     const a = new URL(req.url).searchParams.get("action");
     if (a === "health") return handleHealth();
+    if (a === "models") return handleModels(req);
     if (a === "supabase") {
       const t = new URL(req.url).searchParams.get("table") || "";
       if (t === "matches" || t === "rounds") return handleSupabase(t, req);
