@@ -51,7 +51,7 @@ async function transformGemini(reader: ReadableStreamDefaultReader<Uint8Array>, 
 }
 
 async function handleHealth() {
-  const r: Record<string, boolean> = {};
+  const r: Record<string, any> = {};
   if (AMD_URL) {
     try {
       const res = await fetch(AMD_URL + "/models", {
@@ -59,8 +59,9 @@ async function handleHealth() {
         signal: AbortSignal.timeout(5000),
       });
       r.amd = res.ok;
-    } catch { r.amd = false; }
-  }
+      if (!res.ok) { const t = await res.text().catch(() => ""); r.amdDetail = { status: res.status, body: t.slice(0, 200) }; }
+    } catch (e: any) { r.amd = false; r.amdDetail = { error: e?.message || String(e) }; }
+  } else { r.amd = false; r.amdDetail = "AMD_URL not set"; }
   if (FW_KEY) {
     try {
       const res = await fetch("https://api.fireworks.ai/inference/v1/models", {
@@ -68,8 +69,9 @@ async function handleHealth() {
         signal: AbortSignal.timeout(5000),
       });
       r.fireworks = res.ok;
-    } catch { r.fireworks = false; }
-  }
+      if (!res.ok) { const t = await res.text().catch(() => ""); r.fwDetail = { status: res.status, body: t.slice(0, 200) }; }
+    } catch (e: any) { r.fireworks = false; r.fwDetail = { error: e?.message || String(e) }; }
+  } else { r.fireworks = false; r.fwDetail = "FW_KEY not set"; }
   return json(r);
 }
 

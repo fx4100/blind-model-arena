@@ -263,8 +263,9 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
       const res = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
       if (res.ok) {
         const h = await res.json();
-        if (!h.amd) { setSpeedLoading(false); setSpeedError('AMD GPU is not responding: Try again later or open an issue.'); return; }
-        if (!h.fireworks) { setSpeedLoading(false); setSpeedError('Fireworks AI unusable: Try again later or open an issue on Github.'); return; }
+        console.log('[health]', h);
+        if (!h.amd) { setSpeedLoading(false); setSpeedError('AMD GPU is not responding' + (h.amdDetail ? ': ' + JSON.stringify(h.amdDetail) : '.')); return; }
+        if (!h.fireworks) { setSpeedLoading(false); setSpeedError('Fireworks AI unusable' + (h.fwDetail ? ': ' + JSON.stringify(h.fwDetail) : '.')); return; }
       }
     } catch { setSpeedLoading(false); setSpeedError('AMD GPU is not responding: Try again later or open an issue.'); return; }
     setSpeedLoading(false);
