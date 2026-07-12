@@ -4,6 +4,8 @@ import { encode } from 'gpt-tokenizer';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { demoProvider } from '../../providers/demo';
 import { fetchLLM, proxySaveMatch, proxySaveRound } from '../../services/api';
 import type {
@@ -465,7 +467,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {errorA ? <div className="text-destructive text-sm p-4 rounded-none bg-destructive/5">{errorA}</div> :
-            responseA ? <div className="whitespace-pre-wrap text-sm leading-relaxed">{responseA}</div> :
+            responseA ? <div className="text-sm leading-relaxed"><ReactMarkdown remarkPlugins={[remarkGfm]}>{responseA}</ReactMarkdown></div> :
             phase === 'responding' ? <div className="flex items-center gap-2 text-foreground/40 text-sm font-mono uppercase tracking-wider"><span className="inline-block w-1.5 h-1.5 bg-primary animate-pulse" /> Generating response…</div> :
             phase === 'prompt' ? <div className="text-foreground/30 text-sm">Enter a prompt above to see the response here.</div> :
             <div className="text-foreground/30 text-sm italic">Said nothing.</div>}
@@ -477,7 +479,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {errorB ? <div className="text-destructive text-sm p-4 rounded-none bg-destructive/5">{errorB}</div> :
-            responseB ? <div className="whitespace-pre-wrap text-sm leading-relaxed">{responseB}</div> :
+            responseB ? <div className="text-sm leading-relaxed"><ReactMarkdown remarkPlugins={[remarkGfm]}>{responseB}</ReactMarkdown></div> :
             phase === 'responding' ? <div className="flex items-center gap-2 text-foreground/40 text-sm font-mono uppercase tracking-wider"><span className="inline-block w-1.5 h-1.5 bg-primary animate-pulse" /> Generating response…</div> :
             phase === 'prompt' ? <div className="text-foreground/30 text-sm">Enter a prompt above to see the response here.</div> :
             <div className="text-foreground/30 text-sm italic">Said nothing.</div>}
