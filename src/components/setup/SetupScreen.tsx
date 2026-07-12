@@ -551,9 +551,11 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     try {
       const amdUrl = import.meta.env.VITE_AMD_ENDPOINT?.replace(/\/+$/, '');
       const amdKey = import.meta.env.VITE_AMD_API_KEY;
+      const fireKey = import.meta.env.VITE_FIREWORKS_API_KEY;
       const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const edgeUrl = getEdgeFunctionUrl();
+
       if (amdUrl && amdKey && supabaseAnon) {
-        const edgeUrl = getEdgeFunctionUrl();
         const res = await fetch(edgeUrl + '/models', {
           method: 'GET',
           headers: {
@@ -565,13 +567,31 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
           signal: AbortSignal.timeout(5000),
         });
         if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          throw new Error(`Edge Function returned ${res.status}: ${txt.slice(0, 120)}`);
+          setSpeedLoading(false);
+          setSpeedError(`AMD GPU is not responding: Either turned off for saving or no more credits left for it.`);
+          return;
+        }
+      }
+
+      if (fireKey && supabaseAnon) {
+        const res = await fetch(edgeUrl + '/models', {
+          method: 'GET',
+          headers: {
+            'x-api-key': fireKey,
+            'x-provider': 'fireworks',
+            'Authorization': `Bearer ${supabaseAnon}`,
+          },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) {
+          setSpeedLoading(false);
+          setSpeedError(`Fireworks AI unusable: Try again later or open an issue on Github.`);
+          return;
         }
       }
     } catch (e: any) {
       setSpeedLoading(false);
-      setSpeedError(`AMD GPU unreachable: ${e?.message || e}`);
+      setSpeedError(`AMD GPU is not responding: Either turned off for saving or no more credits left for it.`);
       return;
     }
     setSpeedLoading(false);
