@@ -405,17 +405,13 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       (async () => {
         try {
           if (!matchIdRef.current) {
-            matchIdRef.current = await proxySaveMatch({ total_rounds: config.totalRounds, system_prompt: config.systemPrompt, selection_mode: 'whitelist', pool_model_count: config.allowedModels.length });
+            matchIdRef.current = await proxySaveMatch({ total_rounds: config.totalRounds, selection_mode: 'whitelist', pool_model_count: config.allowedModels.length });
           }
           await proxySaveRound({
-            match_id: matchIdRef.current, round_number: round.roundNumber, prompt: round.prompt,
+            match_id: matchIdRef.current, round_number: round.roundNumber,
             model_a_id: shuffle.behindA.id, model_a_name: shuffle.behindA.name, model_a_provider: shuffle.behindA.provider,
             model_b_id: shuffle.behindB.id, model_b_name: shuffle.behindB.name, model_b_provider: shuffle.behindB.provider,
-            response_a: round.responseA, response_b: round.responseB, vote: round.vote,
-            decided_via_unsure: round.decidedViaUnsure ?? false,
-            tokens_a_output: round.tokensA.output, tokens_a_input: round.tokensA.input,
-            tokens_b_output: round.tokensB.output, tokens_b_input: round.tokensB.input,
-            time_ms_a: round.timeMsA, time_ms_b: round.timeMsB,
+            vote: round.vote,
           });
         } catch {}
       })();
