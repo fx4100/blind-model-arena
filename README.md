@@ -36,8 +36,8 @@ When evaluating Large Language Models, human judgment is easily clouded by **bra
 
 ### 1. 🧪 Demo Mode
 Jump in instantly with zero setup and no API keys.
-* **Canned Pools:** Streams from a curated pool of 15 high-quality, scientific and historical responses to simulate realistic LLM latencies.
-* **Auto-AMD Upgrade:** If a self-hosted AMD GPU backend is detected, Demo Mode automatically swaps simulated outputs for live GPU inference on the AMD model.
+* **Simulated Pool:** Compare top-tier simulated models (like GPT-4o, Claude 3.5 Sonnet, and Gemini 2.0 Flash) streaming from a curated set of high-quality responses.
+* **AMD GPU Integration:** The model list also includes the live `gpt-oss-20b` AMD GPU model, allowing users to select and test self-hosted GPU inference directly.
 
 ### 2. 🔑 Bring Your Own Key (BYOK)
 Connect your own API key to compare live models directly. Supported providers include:
