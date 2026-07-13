@@ -122,15 +122,11 @@ For production deployments (e.g., in Vercel environment variables) or when setti
 
 ## 📦 Deployment
 
-### Frontend Build
+### Frontend Build & Deployment
 Compile the optimized production build:
 ```bash
 npm run build
 ```
-Deploy the resulting `/dist` folder to hosts like **Vercel**, **Netlify**, or **Cloudflare Pages**.
+Deploy the resulting `/dist` folder directly to **Vercel**, **Netlify**, or **Cloudflare Pages**. 
 
-### Supabase Edge Function Deployment
-Deploy the companion LLM proxy function directly to your Supabase project:
-```bash
-npx supabase functions deploy llm-proxy
-```
+When deploying on Vercel, the Edge Function in the `/api` directory is automatically detected and routed, serving as the secure proxy for API key authentication and streaming normalizations.
