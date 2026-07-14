@@ -131,14 +131,37 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const matchIdRef = useRef<string | null>(null);
   const actualFasterRef = useRef<'a' | 'b'>('a');
   const swapRef = useRef(false);
-  const [toasts, setToasts] = useState<Array<{id: number; msg: string}>>([]);
+  const amdOkRef = useRef(true);
+  const fwOkRef = useRef(true);
+  const [toasts, setToasts] = useState<Array<{id: number; msg: string; leaving: boolean}>>([]);
   const tidRef = useRef(0);
 
   function addToast(msg: string) {
     const id = ++tidRef.current;
-    setToasts(p => [...p, {id, msg}]);
-    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 5000);
+    setToasts(p => [...p, {id, msg, leaving: false}]);
+    setTimeout(() => dismissToast(id), 10000);
   }
+
+  function dismissToast(id: number) {
+    setToasts(p => p.map(t => t.id === id ? {...t, leaving: true} : t));
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 300);
+  }
+
+  // health check once on mount for speed mode
+  useEffect(() => {
+    if (!isSpeed) return;
+    (async () => {
+      try {
+        const hr = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
+        if (hr.ok) {
+          const h = await hr.json();
+          if (!h.amd) { amdOkRef.current = false; addToast('AMD GPU unreachable; using demo responses'); }
+          if (!h.fireworks) { fwOkRef.current = false; addToast('Fireworks API unreachable; using demo responses'); }
+          if (!h.amd && !h.fireworks) addToast('Providers unreachable; using demo responses');
+        }
+      } catch { amdOkRef.current = false; fwOkRef.current = false; addToast('Providers unreachable; using demo responses'); }
+    })();
+  }, [isSpeed]);
 
   useEffect(() => {
     if (phase === 'round_end' && config.mode === 'demo' && !isSpeed) {
@@ -217,23 +240,12 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       const swap = Math.random() < 0.5;
       swapRef.current = swap;
 
-      // health check both providers
-      let amdOk = true, fwOk = true;
-      try {
-        const hr = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
-        if (hr.ok) {
-          const h = await hr.json();
-          if (!h.amd) { amdOk = false; addToast('AMD GPU down — using simulated response'); }
-          if (!h.fireworks) { fwOk = false; addToast('Fireworks AI down — using simulated response'); }
-        }
-      } catch { amdOk = false; fwOk = false; addToast('Health check failed — using simulated responses'); }
-
       const streamViaProxy = async (
         provider: LlmProvider,
         setText: (t: string) => void,
       ): Promise<{ text: string; elapsed: number }> => {
         // preresponse fallback if provider is down
-        if ((provider === 'custom' && !amdOk) || (provider === 'fireworks' && !fwOk)) {
+        if ((provider === 'custom' && !amdOkRef.current) || (provider === 'fireworks' && !fwOkRef.current)) {
           let text = '';
           const t1 = performance.now();
           for await (const chunk of speedChat(true)) {
@@ -596,9 +608,9 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       {/* toasts */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
         {toasts.map(t => (
-          <div key={t.id} className="bg-destructive text-destructive-foreground text-sm px-4 py-3 rounded shadow-lg flex items-start gap-2 animate-in slide-in-from-right fade-in">
+          <div key={t.id} className={`bg-black/70 backdrop-blur-sm border border-red-500/60 text-red-400 text-sm px-4 py-3 rounded shadow-lg flex items-start gap-2 transition-opacity duration-300 ${t.leaving ? 'opacity-0' : 'opacity-100'}`}>
             <span className="flex-1">{t.msg}</span>
-            <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className="text-destructive-foreground/70 hover:text-destructive-foreground shrink-0 cursor-pointer"><X size={14} /></button>
+            <button onClick={() => dismissToast(t.id)} className="text-red-400/60 hover:text-red-400 shrink-0 cursor-pointer"><X size={14} /></button>
           </div>
         ))}
       </div>
