@@ -148,10 +148,8 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   // show toasts on mount based on health from setup
   useEffect(() => {
     if (!isSpeed) return;
-    const a = config.amdAlive, f = config.fwAlive;
-    if (a === false && f === false) addToast('Providers unreachable; using demo responses');
-    else if (a === false) addToast('AMD GPU unreachable; using demo responses');
-    else if (f === false) addToast('Fireworks API unreachable; using demo responses');
+    if (config.amdAlive === false) addToast('AMD GPU unreachable; using demo responses');
+    if (config.fwAlive === false) addToast('Fireworks API unreachable; using demo responses');
   }, [isSpeed, config.amdAlive, config.fwAlive]);
 
   useEffect(() => {
