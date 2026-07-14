@@ -602,10 +602,10 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       {/* toasts */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-3 max-w-sm">
         {toasts.map(t => (
-          <div key={t.id} className={`bg-surface/70 backdrop-blur-md border border-red-500/50 text-red-400 text-sm pl-3 pr-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 ${t.leaving ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}>
-            <AlertCircle size={20} className="text-red-400 shrink-0" />
+          <div key={t.id} className={`bg-surface/70 backdrop-blur-md border border-destructive/50 text-destructive text-sm pl-3 pr-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 transition-all duration-300 ${t.leaving ? 'opacity-0 translate-x-4' : 'opacity-100 translate-x-0'}`}>
+            <AlertCircle size={20} className="text-destructive shrink-0" />
             <span className="flex-1 leading-snug">{t.msg}</span>
-            <button onClick={() => dismissToast(t.id)} className="text-red-400/40 hover:text-red-400 shrink-0 cursor-pointer transition-colors"><X size={16} /></button>
+            <button onClick={() => dismissToast(t.id)} className="text-destructive/40 hover:text-destructive shrink-0 cursor-pointer transition-colors"><X size={16} /></button>
           </div>
         ))}
       </div>
