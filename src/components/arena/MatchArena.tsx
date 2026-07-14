@@ -4,7 +4,7 @@ import { encode } from 'gpt-tokenizer';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
-import { demoProvider } from '../../providers/demo';
+import { demoProvider, speedChat } from '../../providers/demo';
 import { fetchLLM, proxySaveMatch, proxySaveRound } from '../../services/api';
 import type {
   MatchConfig,
@@ -131,6 +131,14 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const matchIdRef = useRef<string | null>(null);
   const actualFasterRef = useRef<'a' | 'b'>('a');
   const swapRef = useRef(false);
+  const [toasts, setToasts] = useState<Array<{id: number; msg: string}>>([]);
+  const tidRef = useRef(0);
+
+  function addToast(msg: string) {
+    const id = ++tidRef.current;
+    setToasts(p => [...p, {id, msg}]);
+    setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 5000);
+  }
 
   useEffect(() => {
     if (phase === 'round_end' && config.mode === 'demo' && !isSpeed) {
@@ -209,10 +217,31 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       const swap = Math.random() < 0.5;
       swapRef.current = swap;
 
+      // health check both providers
+      let amdOk = true, fwOk = true;
+      try {
+        const hr = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
+        if (hr.ok) {
+          const h = await hr.json();
+          if (!h.amd) { amdOk = false; addToast('AMD GPU down — using simulated response'); }
+          if (!h.fireworks) { fwOk = false; addToast('Fireworks AI down — using simulated response'); }
+        }
+      } catch { amdOk = false; fwOk = false; addToast('Health check failed — using simulated responses'); }
+
       const streamViaProxy = async (
         provider: LlmProvider,
         setText: (t: string) => void,
       ): Promise<{ text: string; elapsed: number }> => {
+        // preresponse fallback if provider is down
+        if ((provider === 'custom' && !amdOk) || (provider === 'fireworks' && !fwOk)) {
+          let text = '';
+          const t1 = performance.now();
+          for await (const chunk of speedChat(true)) {
+            text += chunk.content;
+            setText(text);
+          }
+          return { text, elapsed: performance.now() - t1 };
+        }
         let text = '';
         const t1 = performance.now();
         const res = await fetchLLM({
@@ -405,13 +434,17 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       (async () => {
         try {
           if (!matchIdRef.current) {
-            matchIdRef.current = await proxySaveMatch({ total_rounds: config.totalRounds, selection_mode: 'whitelist', pool_model_count: config.allowedModels.length });
+            matchIdRef.current = await proxySaveMatch({ total_rounds: config.totalRounds, system_prompt: config.systemPrompt, selection_mode: 'whitelist', pool_model_count: config.allowedModels.length });
           }
           await proxySaveRound({
-            match_id: matchIdRef.current, round_number: round.roundNumber,
+            match_id: matchIdRef.current, round_number: round.roundNumber, prompt: round.prompt,
             model_a_id: shuffle.behindA.id, model_a_name: shuffle.behindA.name, model_a_provider: shuffle.behindA.provider,
             model_b_id: shuffle.behindB.id, model_b_name: shuffle.behindB.name, model_b_provider: shuffle.behindB.provider,
-            vote: round.vote,
+            response_a: round.responseA, response_b: round.responseB, vote: round.vote,
+            decided_via_unsure: round.decidedViaUnsure ?? false,
+            tokens_a_output: round.tokensA.output, tokens_a_input: round.tokensA.input,
+            tokens_b_output: round.tokensB.output, tokens_b_input: round.tokensB.input,
+            time_ms_a: round.timeMsA, time_ms_b: round.timeMsB,
           });
         } catch {}
       })();
@@ -559,6 +592,16 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
           <Button onClick={handleNextRound} size="lg"><RefreshCw size={18} /> Next Round</Button>
         </div>
       )}
+
+      {/* toasts */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+        {toasts.map(t => (
+          <div key={t.id} className="bg-destructive text-destructive-foreground text-sm px-4 py-3 rounded shadow-lg flex items-start gap-2 animate-in slide-in-from-right fade-in">
+            <span className="flex-1">{t.msg}</span>
+            <button onClick={() => setToasts(p => p.filter(x => x.id !== t.id))} className="text-destructive-foreground/70 hover:text-destructive-foreground shrink-0 cursor-pointer"><X size={14} /></button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

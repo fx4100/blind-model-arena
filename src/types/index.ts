@@ -137,6 +137,7 @@ export interface MatchRecord {
   client_id: string;
   created_at: string;
   total_rounds: number;
+  system_prompt: string;
   selection_mode: string;
   pool_model_count: number;
 }
@@ -145,12 +146,22 @@ export interface RoundRecord {
   id: string;
   match_id: string;
   round_number: number;
+  prompt: string;
   model_a_id: string;
   model_a_name: string;
   model_a_provider: string;
   model_b_id: string;
   model_b_name: string;
   model_b_provider: string;
+  response_a?: string;
+  response_b?: string;
   vote?: 'a' | 'b';
+  decided_via_unsure: boolean;
+  tokens_a_input?: number;
+  tokens_a_output?: number;
+  tokens_b_input?: number;
+  tokens_b_output?: number;
+  time_ms_a?: number;
+  time_ms_b?: number;
   created_at: string;
 }
