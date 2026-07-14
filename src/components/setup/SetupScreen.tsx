@@ -259,12 +259,17 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
 
   const handleSpeedMode = useCallback(async (rounds: number) => {
     setSpeedError(''); setSpeedLoading(true);
+    let aOk = true, fOk = true;
     try {
       const res = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
-      if (res.ok) console.log('[health]', await res.json());
-    } catch {}
+      if (res.ok) {
+        const h = await res.json();
+        aOk = !!h.amd; fOk = !!h.fireworks;
+        console.log('[health]', h);
+      }
+    } catch { aOk = false; fOk = false; }
     setSpeedLoading(false);
-    try { const m = await demoProvider.fetchModels(); onStart({ mode: 'demo', gameMode: 'speed', allowedModels: [m[0]], systemPrompt: 'Dont respond more than 3 paragraphs, be concise and short.', totalRounds: rounds }); } catch {}
+    try { const m = await demoProvider.fetchModels(); onStart({ mode: 'demo', gameMode: 'speed', allowedModels: [m[0]], systemPrompt: 'Dont respond more than 3 paragraphs, be concise and short.', totalRounds: rounds, amdAlive: aOk, fwAlive: fOk }); } catch {}
   }, [onStart]);
 
   const handleFetchModels = useCallback(async () => {

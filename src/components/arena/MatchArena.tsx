@@ -131,8 +131,6 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
   const matchIdRef = useRef<string | null>(null);
   const actualFasterRef = useRef<'a' | 'b'>('a');
   const swapRef = useRef(false);
-  const amdOkRef = useRef(true);
-  const fwOkRef = useRef(true);
   const [toasts, setToasts] = useState<Array<{id: number; msg: string; leaving: boolean}>>([]);
   const tidRef = useRef(0);
 
@@ -147,21 +145,14 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
     setTimeout(() => setToasts(p => p.filter(t => t.id !== id)), 300);
   }
 
-  // health check once on mount for speed mode
+  // show toasts on mount based on health from setup
   useEffect(() => {
     if (!isSpeed) return;
-    (async () => {
-      try {
-        const hr = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
-        if (hr.ok) {
-          const h = await hr.json();
-          if (!h.amd) { amdOkRef.current = false; addToast('AMD GPU unreachable; using demo responses'); }
-          if (!h.fireworks) { fwOkRef.current = false; addToast('Fireworks API unreachable; using demo responses'); }
-          if (!h.amd && !h.fireworks) addToast('Providers unreachable; using demo responses');
-        }
-      } catch { amdOkRef.current = false; fwOkRef.current = false; addToast('Providers unreachable; using demo responses'); }
-    })();
-  }, [isSpeed]);
+    const a = config.amdAlive, f = config.fwAlive;
+    if (a === false && f === false) addToast('Providers unreachable; using demo responses');
+    else if (a === false) addToast('AMD GPU unreachable; using demo responses');
+    else if (f === false) addToast('Fireworks API unreachable; using demo responses');
+  }, [isSpeed, config.amdAlive, config.fwAlive]);
 
   useEffect(() => {
     if (phase === 'round_end' && config.mode === 'demo' && !isSpeed) {
@@ -240,15 +231,18 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
       const swap = Math.random() < 0.5;
       swapRef.current = swap;
 
+      const aAlive = config.amdAlive !== false;
+      const fAlive = config.fwAlive !== false;
+
       const streamViaProxy = async (
         provider: LlmProvider,
         setText: (t: string) => void,
       ): Promise<{ text: string; elapsed: number }> => {
         // preresponse fallback if provider is down
-        if ((provider === 'custom' && !amdOkRef.current) || (provider === 'fireworks' && !fwOkRef.current)) {
+        if ((provider === 'custom' && !aAlive) || (provider === 'fireworks' && !fAlive)) {
           let text = '';
           const t1 = performance.now();
-          for await (const chunk of speedChat(true)) {
+          for await (const chunk of speedChat(Math.random() < 0.5)) {
             text += chunk.content;
             setText(text);
           }

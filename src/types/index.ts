@@ -37,8 +37,9 @@ export interface MatchConfig {
   allowedModels: ModelInfo[];
   systemPrompt: string;
   totalRounds: number;
-  /** Demo mode: AMD GPU is reachable — use live inference instead of canned responses */
+  /** Speed mode: provider reachability */
   amdAlive?: boolean;
+  fwAlive?: boolean;
 }
 
 // ---------------------------------------------------------------------------
