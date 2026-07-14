@@ -261,13 +261,8 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
     setSpeedError(''); setSpeedLoading(true);
     try {
       const res = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
-      if (res.ok) {
-        const h = await res.json();
-        console.log('[health]', h);
-        if (!h.amd) { setSpeedLoading(false); setSpeedError('AMD GPU is not responding' + (h.amdDetail ? ': ' + JSON.stringify(h.amdDetail) : '.')); return; }
-        if (!h.fireworks) { setSpeedLoading(false); setSpeedError('Fireworks AI unusable' + (h.fwDetail ? ': ' + JSON.stringify(h.fwDetail) : '.')); return; }
-      }
-    } catch { setSpeedLoading(false); setSpeedError('AMD GPU is not responding: Try again later or open an issue.'); return; }
+      if (res.ok) console.log('[health]', await res.json());
+    } catch {}
     setSpeedLoading(false);
     try { const m = await demoProvider.fetchModels(); onStart({ mode: 'demo', gameMode: 'speed', allowedModels: [m[0]], systemPrompt: 'Dont respond more than 3 paragraphs, be concise and short.', totalRounds: rounds }); } catch {}
   }, [onStart]);
