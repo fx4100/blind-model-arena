@@ -37,7 +37,7 @@ When evaluating Large Language Models, human judgment is easily clouded by **bra
 ### 1. 🧪 Demo Mode
 Jump in instantly with zero setup and no API keys.
 * **Canned Pools:** Streams from a curated pool of 15 high-quality, scientific and historical responses to simulate realistic LLM latencies.
-* **Auto-AMD Upgrade:** If a self-hosted AMD GPU backend is detected, Demo Mode automatically swaps simulated outputs for live GPU inference on the AMD model.
+* **AMD-hosted model:** If the self-hosted AMD GPU backend is available (depends on the credits, blame/praise AMD), a real `gpt-oss-20b` model can be used in Demo.
 
 ### 2. 🔑 Bring Your Own Key (BYOK)
 Connect your own API key to compare live models directly. Supported providers include:
@@ -50,18 +50,18 @@ Connect your own API key to compare live models directly. Supported providers in
 
 ### ⚡ 3. Catch the Speeder (Survival Minigame)
 A high-stakes speed-guessing game designed to test human perception of inference latencies.
-* **Setup:** The same model architecture runs on two different backends: Fireworks Cloud API and a local self-hosted AMD GPU running `llama.cpp` + ROCm.
+* **Setup:** The same model (`gpt-oss-20b') architecture runs on two different backends: Fireworks Cloud API and a local self-hosted AMD GPU running `llama.cpp` (F16) + ROCm.
 * **Gameplay:** Watch the concurrent SSE streams, and guess which side finished first. 
-* **Mechanics:** You start with **3 hearts**—each wrong guess costs one heart. Position assignments are randomized every round to prevent layout bias.
+* **Mechanics:** You start with **3 hearts**, each wrong guess costs one heart. Position assignments are randomized every round to prevent layout bias.
 
 ---
 
 ## 🔒 Privacy-First Design
 
-Unlike other model arenas, **Blind Model Arena does not collect your prompts, conversations, or LLM responses.** We believe that your prompts and interactions are strictly private. 
+Unlike other model arenas, **Blind Model Arena does not collect your prompts, conversations, or LLM responses.** We "believe" that your prompts and interactions are strictly private, or in short: We don't give a f*ck.
 
 * **No Text Collection:** Our database logs exclude all prompt texts, system instructions, and assistant responses.
-* **Minimal Statistics:** We persist only the anonymous match/round sequence, the models involved, and the final preference vote to calculate model win rates.
+* **Minimal Statistics:** We persist only the anonymous match/round sequence, the models involved, and the final preference vote to calculate model win rates. Just to see which one is more preferred to which.
 * **Local-First Keys:** Your API keys are stored solely in your browser's `localStorage`. They are sent over HTTPS to the secure edge proxy only to authorize outgoing requests, and are never logged or stored on any server.
 
 ---
@@ -82,7 +82,7 @@ Unlike other model arenas, **Blind Model Arena does not collect your prompts, co
          ┌────────────────────────┼────────────────────────┐
          │                        │                        │
 ┌────────▼────────┐      ┌────────▼────────┐      ┌────────▼────────┐
-│   OpenAI API    │      │  OpenRouter API │      │  Self-Hosted    │
+│   Any of API    │      │  Firework AI API│      │  Self-Hosted    │
 │  (Cloud Host)   │      │  (Cloud Host)   │      │  AMD GPU Server │
 └─────────────────┘      └─────────────────┘      └─────────────────┘
 ```
