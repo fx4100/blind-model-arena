@@ -253,10 +253,13 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
 
   const handleDemoMode = useCallback(async () => {
     setMode('demo'); setCustomGameMode('standard'); setAmdAlive(false);
-    try {
-      const res = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
-      if (res.ok) { const h = await res.json(); setAmdAlive(!!h.amd); }
-    } catch {}
+    // fire health check in background — don't block model list
+    (async () => {
+      try {
+        const res = await fetch('/api/llm-proxy?action=health', { method: 'GET', signal: AbortSignal.timeout(5000) });
+        if (res.ok) { const h = await res.json(); setAmdAlive(!!h.amd); }
+      } catch {}
+    })();
     try { const m = await demoProvider.fetchModels(); setModels(m); setEnabledIds(initEnabledIds(m, selectionMode)); setStep('models'); } catch {}
   }, [selectionMode, initEnabledIds]);
 
