@@ -332,7 +332,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         <LogoRainCanvas />
         <button onClick={toggleTheme} className="fixed top-6 right-6 z-50 p-2.5 rounded-xl border border-border bg-surface/60 backdrop-blur-md text-foreground hover:bg-muted/70 transition-all cursor-pointer shadow-sm flex items-center justify-center" aria-label="Toggle Theme">{theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}</button>
         <div className={`z-20 fixed flex flex-col transition-all duration-700 ease-out rounded-xl ${introStage === 'intro' ? 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 items-center bg-surface/60 backdrop-blur-md px-8 py-6' : 'top-6 left-6 translate-x-0 translate-y-0 items-start bg-surface/60 backdrop-blur-md px-4 py-2'}`}>
-          <h1 className={`font-heading font-bold uppercase tracking-wider text-foreground whitespace-nowrap transition-all duration-700 ${introStage === 'intro' ? 'text-4xl md:text-5xl' : 'text-xl'}`}>Blind Model Arena</h1>
+          <h1 className={`font-heading font-bold uppercase tracking-wider text-foreground whitespace-nowrap transition-all duration-700 ${introStage === 'intro' ? 'text-4xl md:text-5xl' : 'text-xl'}`}>Blind Model Arena<span className="text-violet">.</span></h1>
           <p className={`font-sans italic text-sm text-foreground/50 transition-all duration-500 ${introStage === 'setup' ? 'opacity-100 mt-1' : 'opacity-0 h-0 overflow-hidden'}`}>To satisfy your "impartiality".</p>
         </div>
         <div className={`z-10 relative grid gap-4 w-full max-w-md overflow-y-auto transition-all duration-700 delay-300 transform ${introStage === 'setup' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>

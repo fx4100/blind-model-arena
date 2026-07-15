@@ -488,7 +488,7 @@ export function MatchArena({ config, onReveal }: MatchArenaProps) {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 max-w-6xl mx-auto w-full shrink-0">
         <div>
-          <h1 className="font-heading font-bold text-xl text-foreground">Blind Model Arena</h1>
+          <h1 className="font-heading font-bold text-xl text-foreground">Blind Model Arena<span className="text-violet">.</span></h1>
           <p className="text-sm text-foreground/50">Round {currentRound} / {config.totalRounds}</p>
         </div>
         {isSpeed ? (

@@ -7,6 +7,7 @@
   --color-on-primary: oklch(1.0 0 0);
   --color-destructive: oklch(0.58 0.22 25);
   --color-ring: var(--color-primary);
+  --color-violet: #6366f1;
 
   /* Light Mode (default) */
   --color-background: oklch(0.98 0.005 270); /* Light gray #f8f9fa */
@@ -42,6 +43,7 @@
   --color-surface: var(--color-surface);
   --color-destructive: var(--color-destructive);
   --color-ring: var(--color-ring);
+  --color-violet: var(--color-violet);
 }
 
 body {
