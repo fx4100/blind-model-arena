@@ -80,6 +80,7 @@ interface ModelRowProps {
   enabled: boolean;
   mode: SelectionMode;
   onToggle: (id: string) => void;
+  amdAlive?: boolean;
 }
 
 const MODEL_LOGOS: [RegExp, string][] = [
@@ -98,11 +99,12 @@ function getModelLogoUrl(model: ModelInfo): string | null {
   return null;
 }
 
-const ModelRow = memo(function ModelRow({ model, enabled, mode, onToggle }: ModelRowProps) {
+const ModelRow = memo(function ModelRow({ model, enabled, mode, onToggle, amdAlive }: ModelRowProps) {
   const isW = mode === 'whitelist';
   const hc = enabled ? (isW ? 'border-primary bg-primary/5 text-foreground' : 'border-destructive bg-destructive/5 text-foreground') : 'border-border opacity-70 hover:opacity-90';
   const cc = enabled ? (isW ? 'bg-primary border-primary' : 'bg-destructive border-destructive') : 'border-foreground/20';
   const logoUrl = getModelLogoUrl(model);
+  const isAmd = model.id === 'gpt-oss-20b';
   return (
     <div className="pb-2 h-full">
       <Card hover padding="sm" onClick={() => onToggle(model.id)} className={`h-full text-left cursor-pointer transition-all rounded-none ${hc}`}>
@@ -111,6 +113,7 @@ const ModelRow = memo(function ModelRow({ model, enabled, mode, onToggle }: Mode
           <div className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition-colors ${cc}`}>{enabled && (isW ? <Check size={12} className="text-on-primary" /> : <ShieldBan size={12} className="text-on-primary" />)}</div>
           <span className="font-medium text-sm truncate">{model.name}</span>
           <span className="text-[10px] text-foreground/30 font-heading shrink-0 hidden sm:inline truncate max-w-[120px]">{model.id}</span>
+          {isAmd && <span className={`w-2 h-2 rounded-full shrink-0 ${amdAlive ? 'bg-emerald-500' : 'bg-destructive'}`} title={amdAlive ? 'GPU online' : 'GPU unreachable'} />}
           {!enabled && !isW && <span className="text-[10px] text-emerald-400 font-heading shrink-0 ml-auto">available</span>}
           {!enabled && isW && <X size={14} className="text-foreground/20 shrink-0 ml-auto" />}
           {enabled && !isW && <X size={14} className="text-destructive/50 shrink-0 ml-auto" />}
@@ -403,7 +406,7 @@ export function SetupScreen({ onStart, toggleTheme, theme }: SetupScreenProps) {
         <Input placeholder="Search models…" value={modelSearch} onChange={(e) => setModelSearch(e.target.value)} className="mb-2" />
         <div className="flex-1 min-h-[100px] mb-2">
           {filteredModels.length > 0 ? (
-            <VirtualList items={filteredModels} itemHeight={62} overscan={5} className="h-full" renderItem={(m) => <ModelRow model={m} enabled={enabledIds.has(m.id)} mode={selectionMode} onToggle={toggleModel} />} />
+            <VirtualList items={filteredModels} itemHeight={62} overscan={5} className="h-full" renderItem={(m) => <ModelRow model={m} enabled={enabledIds.has(m.id)} mode={selectionMode} onToggle={toggleModel} amdAlive={amdAlive} />} />
           ) : (
             <div className="h-full flex items-center justify-center"><p className="text-sm text-foreground/40">{deferredSearch ? 'No matching models found.' : 'No models loaded.'}</p></div>
           )}

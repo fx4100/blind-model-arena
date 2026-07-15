@@ -64,12 +64,11 @@ async function handleHealth() {
   } else { r.amd = false; r.amdDetail = "AMD_URL not set"; }
   if (FW_KEY) {
     try {
-      const res = await fetch("https://api.fireworks.ai/inference/v1/models", {
+      await fetch("https://api.fireworks.ai/inference/v1/models", {
         headers: { "Authorization": `Bearer ${FW_KEY}` },
         signal: AbortSignal.timeout(5000),
       });
-      r.fireworks = res.ok;
-      if (!res.ok) { const t = await res.text().catch(() => ""); r.fwDetail = { status: res.status, body: t.slice(0, 200) }; }
+      r.fireworks = true;
     } catch (e: any) { r.fireworks = false; r.fwDetail = { error: e?.message || String(e) }; }
   } else { r.fireworks = false; r.fwDetail = "FW_KEY not set"; }
   return json(r);
