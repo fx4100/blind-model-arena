@@ -50,7 +50,7 @@ Connect your own API key to compare live models directly. Supported providers in
 
 ### ⚡ 3. Catch the Speeder (Survival Minigame)
 A high-stakes speed-guessing game designed to test human perception of inference latencies.
-* **Setup:** The same model (`gpt-oss-20b') architecture runs on two different backends: Fireworks Cloud API and a local self-hosted AMD GPU running `llama.cpp` (F16) + ROCm.
+* **Setup:** The same model (`gpt-oss-20b`) architecture runs on two different backends: Fireworks Cloud API and a local self-hosted AMD GPU running `llama.cpp` (F16) + ROCm.
 * **Gameplay:** Watch the concurrent SSE streams, and guess which side finished first. 
 * **Mechanics:** You start with **3 hearts**, each wrong guess costs one heart. Position assignments are randomized every round to prevent layout bias.
 
